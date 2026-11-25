@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Embedding example — a blog post</title>
+    <!--
+      An example host page with deliberately opinionated CSS (every button round and colored, its own .btn and .menu rules, …).
+      The widgets render inside a Shadow DOM, so this CSS does not affect them and they do not affect the page.
+    -->
+    <style>
+      * { box-sizing: content-box; }
+      body { margin: 0; background: #fffdf7; color: #222; font: 17px/1.8 Georgia, 'Times New Roman', serif; }
+      main { max-width: 760px; margin: 0 auto; padding: 24px 20px 80px; }
+      h1 { font-size: 30px; line-height: 1.4; }
+      button { padding: 10px 22px; border: 0; border-radius: 999px; background: #e4572e; color: #fff; font: inherit; }
+      .btn { text-transform: uppercase; letter-spacing: .3em; }
+      .menu, .dialog { display: none; }
+      .side { float: right; width: 300px; margin: 6px 0 12px 24px; }
+      kiseki-ticker-tape { position: sticky; top: 0; z-index: 2; }
+      @media (max-width: 720px) { .side { float: none; width: auto; margin: 12px 0; } }
+    </style>
+    <script type="module" src="../embed.js"></script>
+  </head>
+  <body>
+    <kiseki-ticker-tape target=".follow" theme="light"></kiseki-ticker-tape>
+    <main>
+      <h1>Looking back at this week's prices</h1>
+      <p>
+        This is an example of a host page. It has a quirky design of its own: serif body text and round, orange buttons.
+        <button class="btn">A button of this page</button>
+      </p>
+      <kiseki-mini-chart class="side" symbol="FABLE" range="1M" theme="light"></kiseki-mini-chart>
+      <p>
+        The card on the right is a mini chart. This page's CSS makes every button round and colored, yet the buttons inside
+        the widgets are untouched. Click a symbol in the strip at the top and the overview and chart below switch to it.
+      </p>
+      <p>
+        Widgets can sit in the middle of an article. They are sized with ordinary CSS, so they stretch with the column.
+      </p>
+      <kiseki-symbol-overview class="follow" symbols="MYTH/USD,FABLE,AUR/JPY" range="3M" theme="light" style="margin: 20px 0"></kiseki-symbol-overview>
+      <p>For a closer look, the full chart with indicators and drawing tools can be placed as it is.</p>
+      <kiseki-advanced-chart class="follow" symbol="MYTH/USD" timeframe="4h" hide="brand" theme="light" style="height: 480px"></kiseki-advanced-chart>
+    </main>
+  </body>
+</html>

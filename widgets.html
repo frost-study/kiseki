@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kiseki widgets</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%233a3732'/%3E%3Cpath d='M7 22l6-7 4 4 8-10' fill='none' stroke='%23f5f2eb' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <style>
+      /* The gallery page's own look. Colors and fonts use the same theme variables as the widgets (--kc-*). */
+      * { box-sizing: border-box; }
+      html { background: var(--kc-bg); }
+      body { margin: 0; color: var(--kc-text); font: 14px/1.7 var(--kc-font); font-feature-settings: 'palt'; }
+      button, select, input { font: inherit; color: inherit; }
+      a { color: inherit; text-underline-offset: 3px; }
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+      .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 14px 0; border-bottom: 1px solid var(--kc-border); }
+      .top .name { font-weight: 700; letter-spacing: .04em; }
+      .top .grow { flex: 1; }
+      .seg { display: inline-flex; border: 1px solid var(--kc-border); border-radius: 3px; overflow: hidden; }
+      .seg button { height: 26px; padding: 0 10px; border: 0; background: none; font-size: 12.5px; color: var(--kc-muted); cursor: pointer; }
+      .seg button + button { border-left: 1px solid var(--kc-border); }
+      .seg button[aria-pressed='true'] { background: var(--kc-text); color: var(--kc-bg); }
+      .seg button:focus-visible, .ctl select:focus-visible, .copy:focus-visible, .chip input:focus-visible + span { outline: 1px solid var(--kc-text); outline-offset: 1px; }
+      h1 { margin: 40px 0 6px; font-size: 26px; line-height: 1.35; letter-spacing: .01em; }
+      .lead { margin: 0 0 8px; max-width: 46em; color: var(--kc-muted); }
+      section { padding: 34px 0 6px; }
+      h2 { margin: 0 0 2px; font-size: 18px; }
+      section > p { margin: 0 0 14px; max-width: 46em; color: var(--kc-muted); font-size: 13.5px; }
+      .preview { margin-bottom: 12px; }
+      .preview.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+      .panel { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 16px; align-items: start; padding: 14px; border: 1px solid var(--kc-border); border-radius: 4px; background: var(--kc-surface); }
+      .ctl { display: grid; gap: 10px; }
+      .ctl label, .ctl .row { display: grid; gap: 3px; font-size: 12px; color: var(--kc-muted); }
+      .ctl select { height: 30px; padding: 0 8px; border: 1px solid var(--kc-border); border-radius: 3px; background: var(--kc-bg); color: var(--kc-text); }
+      .chips { display: flex; flex-wrap: wrap; gap: 5px; }
+      .chip input { position: absolute; opacity: 0; pointer-events: none; }
+      .chip span { display: inline-block; padding: 2px 9px; border: 1px solid var(--kc-border); border-radius: 3px; background: var(--kc-bg); color: var(--kc-muted); font-size: 12.5px; cursor: pointer; }
+      .chip input:checked + span { background: var(--kc-text); border-color: var(--kc-text); color: var(--kc-bg); }
+      .code { min-width: 0; }
+      .code .bar { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .code .bar .grow { flex: 1; }
+      .copy { height: 26px; padding: 0 12px; border: 1px solid var(--kc-text); border-radius: 3px; background: var(--kc-text); color: var(--kc-bg); font-size: 12.5px; cursor: pointer; }
+      pre { margin: 0; padding: 12px 14px; border: 1px solid var(--kc-border); border-radius: 3px; background: var(--kc-bg); font: 12px/1.65 var(--kc-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+      .how { margin: 40px 0 60px; padding-top: 28px; border-top: 1px solid var(--kc-border); }
+      .how ol { margin: 8px 0 0; padding-left: 1.4em; max-width: 48em; }
+      .how li { margin-bottom: 6px; }
+      .how code { font: 12.5px var(--kc-mono); padding: 1px 5px; border: 1px solid var(--kc-border); border-radius: 3px; }
+      .note { margin-top: 14px; color: var(--kc-muted); font-size: 13px; max-width: 48em; }
+      .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); padding: 7px 13px; border-radius: 3px; background: var(--kc-text); color: var(--kc-bg); font-size: 13px; }
+      @media (max-width: 720px) { .panel { grid-template-columns: minmax(0, 1fr); } h1 { font-size: 22px; margin-top: 28px; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap" id="page"></div>
+    <script type="module" src="src/ui/gallery.js"></script>
+  </body>
+</html>

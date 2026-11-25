@@ -1,0 +1,17 @@
+{
+  "name": "kiseki-chart",
+  "version": "0.1.0",
+  "description": "A dependency-free canvas charting engine and embeddable chart widgets: candlesticks, lines, ticks and more",
+  "keywords": ["chart", "charting", "candlestick", "canvas", "financial", "widgets", "web-components", "zero-dependency"],
+  "type": "module",
+  "private": true,
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node tools/serve.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "license": "MIT"
+}
