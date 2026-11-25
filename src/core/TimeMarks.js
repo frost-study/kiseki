@@ -61,6 +61,11 @@ export class TimeMarks {
     this.lists = new Map(LEVELS.map((lv) => [lv, []]));
     this.n = 0;
     this.offset = 0;
+    /**
+     * Optional label override: (time, level) => string. Return null or undefined to keep the built-in text.
+     * @type {((time: number, level: number) => (string | null | undefined)) | null}
+     */
+    this.format = null;
     this.#grid = new Float64Array(64);
   }
 
@@ -122,7 +127,10 @@ export class TimeMarks {
     if (marks.length < enough && to - from <= 4000) {
       for (let i = from; i <= to; i++) place(i, SUBSECOND);
     }
-    for (const m of marks) m.label = formatMark(data.time[m.index], this.offset, m.level);
+    for (const m of marks) {
+      const time = data.time[m.index];
+      m.label = this.format?.(time, m.level) ?? formatMark(time, this.offset, m.level);
+    }
     return marks;
   }
 }

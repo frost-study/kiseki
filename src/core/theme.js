@@ -80,8 +80,13 @@ export const candleSchemes = {
   sumi: { label: 'Ink tones (up = light / down = dark)', light: ['#aaa598', '#3a3732'], dark: ['#d8d3c7', '#7a756c'] },
 };
 
+/**
+ * @param {string|object} theme a theme name, or an object that overrides an existing theme (`name` picks the base)
+ * @param {string|{up:string, down:string}} [scheme] a candle scheme id, or your own up / down colors
+ */
 export function resolveTheme(theme, scheme = 'wa') {
   const base = typeof theme === 'string' ? themes[theme] ?? themes.light : { ...(themes[theme?.name] ?? themes.light), ...theme };
+  if (scheme && typeof scheme === 'object' && scheme.up && scheme.down) return { ...base, up: scheme.up, down: scheme.down, scheme };
   const id = candleSchemes[scheme] ? scheme : 'wa';
   const [up, down] = candleSchemes[id][base.name] ?? candleSchemes[id].light;
   return { ...base, up, down, scheme: id };

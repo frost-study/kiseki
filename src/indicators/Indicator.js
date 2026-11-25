@@ -298,7 +298,7 @@ export class Indicator {
   format(v) {
     const p = this.def.precision;
     if (p === 'volume') return formatCompact(v);
-    if (p === 'inherit') return formatPrice(v, this.chart ? this.chart.main.precision : 2);
+    if (p === 'inherit') return this.chart ? this.chart.main.format(v) : formatPrice(v, 2);
     return formatPrice(v, p ?? 2);
   }
 

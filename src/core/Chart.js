@@ -34,9 +34,17 @@ export class Chart extends EventEmitter {
    * @param {object} [options]
    * @param {string} [options.type='candlestick'] main series type (an id in seriesTypes)
    * @param {string|object} [options.theme='light'] 'light' (paper) | 'dark' (ink)
-   * @param {string} [options.scheme='wa'] candle colors ('wa' | 'intl' | 'sumi')
+   * @param {string|{up:string, down:string}} [options.scheme='wa'] candle colors ('wa' | 'intl' | 'sumi'), or your own pair of colors
    * @param {number} [options.utcOffset] display time zone offset in ms. Defaults to the local time zone
    * @param {boolean} [options.overlayLabels=false] also show last-value labels for indicators overlaid on the main pane
+   *
+   * Formatting hooks, for hosts that have their own number and date formats (all optional):
+   * @param {(value:number)=>string} [options.formatPrice] prices of the main series: axis, crosshair, last-value label, legend
+   * @param {(values:number[])=>string[]|null|undefined} [options.formatTicks] the main pane's axis tick labels, formatted
+   *   together (so they can share a precision). Return nothing to keep the built-in labels. Not used on the percent scale
+   * @param {(time:number, info:{kind:'mark', level:number} | {kind:'crosshair', interval:number})=>string|null|undefined} [options.formatTime]
+   *   time-axis tick labels ('mark'; level is the TimeMarks weight: 70 year, 60 month, 50 day, below that a time of day)
+   *   and the crosshair's time label. Return null or undefined to keep the built-in text
    *
    * Options for small, embedded views (all optional):
    * @param {boolean} [options.legend=true]      legend in the top-left corner
@@ -45,7 +53,7 @@ export class Chart extends EventEmitter {
    * @param {boolean|'horizontal'} [options.grid=true] grid lines
    * @param {boolean} [options.interactive=true] pan and zoom by drag / wheel. When false, page scrolling is never intercepted
    * @param {boolean|'vertical'} [options.crosshair=true] 'vertical' draws only the vertical line and a marker on the series
-   * @param {boolean} [options.priceLine=true]   horizontal line and label for the last value
+   * @param {boolean|'label'} [options.priceLine=true] horizontal line and label for the last value ('label': the label without the line)
    * @param {number}  [options.rightOffset=6]    empty bars to the right of the latest bar
    * @param {object}  [options.series]           options for the main series (color, etc.)
    */
@@ -65,7 +73,9 @@ export class Chart extends EventEmitter {
     this.timeframeLabel = '';
     this.data = new BarData();
     this.timeScale = new TimeScale();
+    this.timeScale.marks.format = (time, level) => this.options.formatTime?.(time, { kind: 'mark', level });
     this.panes = [new Pane('main', 1)];
+    this.panes[0].scale.formatTicks = (values) => this.options.formatTicks?.(values);
     /** @type {Indicator[]} */
     this.indicators = [];
     this.crosshair = { active: false, x: 0, y: 0, pane: null, index: -1 };
@@ -683,7 +693,7 @@ export class Chart extends EventEmitter {
 
       // Horizontal line at the last value.
       for (const tag of pane.tags) {
-        if (!tag.line || this.options.priceLine === false) continue;
+        if (!tag.line || (this.options.priceLine ?? true) !== true) continue;
         const Y = Math.round(tag.rawY) + 0.5;
         ctx.beginPath();
         ctx.moveTo(0, Y);
@@ -828,7 +838,9 @@ export class Chart extends EventEmitter {
     }
     if (!this.timeAxisHeight) return;
 
-    const label = formatDateTime(ts.indexToTime(c.index), this.utcOffset, this.data.interval);
+    const time = ts.indexToTime(c.index);
+    const interval = this.data.interval;
+    const label = this.options.formatTime?.(time, { kind: 'crosshair', interval }) ?? formatDateTime(time, this.utcOffset, interval);
     const tw = ctx.measureText(label).width + 16;
     const tx = Math.max(0, Math.min(plotW - tw, X - tw / 2));
     ctx.fillStyle = theme.tagBg;

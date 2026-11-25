@@ -186,3 +186,53 @@ test('ticks: nice steps and the minimum step', () => {
   assert.deepEqual(linearTicks(0.03, 0.31, 6), [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]);
   assert.deepEqual(linearTicks(3707.2, 3710.9, 10, 1), [3708, 3709, 3710]);
 });
+
+test('formatting hooks: tick labels, time marks and prices can come from the host', async () => {
+  const { resolveTheme } = await import('../src/core/theme.js');
+  const { Series } = await import('../src/series/Series.js');
+
+  // PriceScale.formatTicks labels all ticks at once; a missing entry keeps the built-in text
+  const scale = new PriceScale();
+  scale.setHeight(400);
+  scale.fit(100, 200);
+  const plain = scale.ticks();
+  scale.formatTicks = (values) => values.map((v, i) => (i === 0 ? undefined : `¥${v}`));
+  const custom = scale.ticks();
+  assert.deepEqual(custom.map((t) => t.value), plain.map((t) => t.value));
+  assert.equal(custom[0].label, plain[0].label);
+  assert.equal(custom[1].label, `¥${custom[1].value}`);
+  scale.setMode('percent');
+  scale.base = 100;
+  scale.fit(100, 200);
+  assert.ok(scale.ticks().every((t) => t.label.endsWith('%')), 'the percent scale keeps its own labels');
+
+  // TimeMarks.format overrides labels; null / undefined falls back
+  const d = new BarData();
+  const DAY = 86_400_000;
+  const t0 = Date.UTC(2026, 0, 1);
+  for (let i = 0; i < 60; i++) d.push(t0 + i * DAY, 1, 1, 1, 1, 0);
+  const marks = new TimeMarks();
+  marks.rebuild(d, 0);
+  const builtin = marks.select(d, 0, 59, 0, 12, 720).map((m) => m.label);
+  marks.format = (time, level) => (level >= 60 ? `M${new Date(time).getUTCMonth() + 1}` : null);
+  const mixed = marks.select(d, 0, 59, 0, 12, 720);
+  assert.ok(mixed.some((m) => m.label === 'M2'));
+  mixed.forEach((m, i) => {
+    if (m.level < 60) assert.equal(m.label, builtin[i]);
+  });
+
+  // Series.format goes through the chart option formatPrice
+  const s = new Series();
+  s.precision = 1;
+  assert.equal(s.format(1234.56), '1,234.6');
+  s.attach({ options: { formatPrice: (v) => `${Math.round(v)} JPY` } }, null);
+  assert.equal(s.format(1234.56), '1235 JPY');
+
+  // resolveTheme accepts custom candle colors and keeps them when the theme changes
+  const mine = { up: '#112233', down: '#445566' };
+  const light = resolveTheme('light', mine);
+  assert.equal(light.up, '#112233');
+  assert.equal(light.down, '#445566');
+  assert.equal(resolveTheme('dark', light.scheme).down, '#445566');
+  assert.equal(resolveTheme('light', 'intl').up, resolveTheme({ name: 'light' }, 'intl').up);
+});

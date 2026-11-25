@@ -82,8 +82,10 @@ export class Series {
     return this.data.close[i];
   }
 
+  /** Price text. A host can replace it with the chart option `formatPrice`. */
   format(v) {
-    return formatPrice(v, this.precision);
+    const custom = this.chart?.options?.formatPrice;
+    return custom ? custom(v) : formatPrice(v, this.precision);
   }
 
   drawBack(_view) {}

@@ -45,6 +45,12 @@ export class PriceScale {
     this.format = (v) => v.toFixed(2);
     /** Smallest tick step (so ticks never get finer than the price tick size). */
     this.minStep = 0;
+    /**
+     * Optional: labels for all ticks at once, (values) => labels, so a host can give them one precision.
+     * A missing result (or a missing entry) keeps the `format` text. Not used in percent mode.
+     * @type {((values: number[]) => (string[] | null | undefined)) | null}
+     */
+    this.formatTicks = null;
     this.#k = 1;
     this.#y0 = 0;
   }
@@ -161,7 +167,8 @@ export class PriceScale {
     } else {
       values = linearTicks(uBottom, uTop, maxTicks, this.minStep);
     }
-    return values.map((v) => ({ y: this.y(v), value: v, label: this.format(v) }));
+    const labels = this.formatTicks?.(values);
+    return values.map((v, i) => ({ y: this.y(v), value: v, label: labels?.[i] ?? this.format(v) }));
   }
 
   #logTicks(uLo, uHi, maxTicks) {

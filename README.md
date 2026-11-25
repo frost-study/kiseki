@@ -114,6 +114,10 @@ chart.update({ time, open, high, low, close, volume });
 For ticks, pass data created with `BarData.ticks()` and add points with
 `chart.append({ time, open: p, high: p, low: p, close: p, volume: size })`.
 
+Hosts with their own number and date formats can pass `formatPrice(value)`, `formatTicks(values)` (all axis tick labels at once)
+and `formatTime(time, { kind: 'mark' | 'crosshair', … })`; returning nothing from `formatTime` keeps the built-in text.
+`scheme` also accepts your own candle colors, `{ up, down }`, and `priceLine: 'label'` keeps the last-value label without the line.
+
 Display options for small, embedded views: `legend` `priceAxis` `timeAxis` `grid` `interactive` `crosshair` `priceLine`
 `rightOffset` `series`. `chart.fitTimeRange(from)` keeps the span from `from` to the latest bar fitted to the full width.
 
