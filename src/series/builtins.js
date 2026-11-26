@@ -286,7 +286,6 @@ export class AreaSeries extends LineSeries {
   }
 }
 
-/** Relative to the value at the left edge of the view, fill above in the up color and below in the down color. */
 /**
  * A line filled towards a baseline: up-colored above it, down-colored below.
  * By default the baseline is the first visible close. Options: `base` (a fixed value such as 0, which then always stays
