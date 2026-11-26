@@ -442,7 +442,8 @@ const text = {
     const size = s.size ?? 11;
     ctx.save();
     ctx.font = env.font(size, s.weight);
-    ctx.textAlign = at.anchor ?? s.anchor ?? 'start';
+    const anchor = at.anchor ?? s.anchor ?? 'start';
+    ctx.textAlign = anchor === 'middle' ? 'center' : anchor;
     ctx.textBaseline = 'alphabetic';
     ctx.globalAlpha = s.opacity ?? 1;
     const w = ctx.measureText(String(s.text)).width;

@@ -450,3 +450,12 @@ test('cartesian: a text mark can be rotated about its anchor', () => {
   assert.ok(Math.abs(calls(fig, 'rotate')[0][1] + Math.PI / 2) < 1e-9);
   assert.deepEqual(calls(fig, 'fillText')[0].slice(1), ['Momentum', 0, 0]);
 });
+
+test('cartesian: text anchored in the middle is centred on its x', () => {
+  const fig = new CartesianFigure(element('div'), { width: 100, height: 100, x: { domain: [0, 10] }, y: { domain: [0, 10] } });
+  fig.setData([{ type: 'text', id: 't', x: 5, y: 5, text: 'abcd', anchor: 'middle' }]);
+  fig.renderNow();
+  assert.equal(fig.canvas.log.filter((c) => c[0] === 'set textAlign').at(-1)[1], 'center');
+  const t = fig.markById('t');
+  assert.equal(t.x + t.w / 2, 50);
+});
