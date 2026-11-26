@@ -49,6 +49,7 @@ export function normalizeMarkers(list) {
 /**
  * Markers on bars: small shapes above or below a bar, with a short text (journal pins, dividends, notes, events).
  * Unlike chart.trades they carry no price: they sit just outside the bar's high or low, and several on one side of a bar stack.
+ * Where chart.trades drew something on the same side of the bar (an arrow, its text, a tick past the bar), they stack beyond it.
  *
  *   chart.markers.set([
  *     { time, position: 'above', shape: 'circle', color: 'accent', text: 'J', id: 'entry-12' },
@@ -161,6 +162,7 @@ export class BarMarkers {
     const list = this.#list;
     const half = SIZE / 2;
     const stacked = new Map();
+    const edges = new Map();
     ctx.save();
     ctx.font = `11px ${theme.mono}`;
     ctx.textAlign = 'center';
@@ -172,7 +174,13 @@ export class BarMarkers {
       stacked.set(key, level + 1);
       const x = Math.round(ts.x(m.index));
       const dir = m.above ? -1 : 1;
-      const anchor = m.above ? pane.scale.y(data.high[m.index]) : pane.scale.y(data.low[m.index]);
+      // The bar's high or low, or further out where chart.trades drew an arrow, its text or a tick on this side.
+      let anchor = edges.get(key);
+      if (anchor === undefined) {
+        anchor = m.above ? pane.scale.y(data.high[m.index]) : pane.scale.y(data.low[m.index]);
+        anchor = chart.trades?.extentBeyond(x, m.above, anchor, half) ?? anchor;
+        edges.set(key, anchor);
+      }
       // keep the shape and its text inside the pane even when the bar touches the edge
       const cy = Math.max(half + TEXT_ROOM, Math.min(H - half - TEXT_ROOM, anchor + dir * (GAP + half + level * STEP)));
       ctx.fillStyle = resolveColor(theme, m.color);

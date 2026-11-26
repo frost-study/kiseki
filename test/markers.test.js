@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BarData } from '../src/core/BarData.js';
 import { BarMarkers, normalizeMarkers } from '../src/markers/BarMarkers.js';
+import { TradeMarkers } from '../src/trades/TradeMarkers.js';
 
 const HOUR = 3_600_000;
 const T0 = Date.UTC(2026, 0, 5, 9);
@@ -150,4 +151,68 @@ test('BarMarkers: hover and click report the marker under the pointer', () => {
   const { ctx, log } = stubContext();
   bm.draw(ctx);
   assert.equal(log.fills.length, 0);
+});
+
+/** A canvas context for TradeMarkers: it draws nothing, and text is 10 px wide. */
+function silentContext() {
+  return new Proxy({ measureText: () => ({ width: 10 }) }, {
+    get: (target, key) => (key in target ? target[key] : () => {}),
+    set: (target, key, value) => ((target[key] = value), true),
+  });
+}
+
+/** A chart with real TradeMarkers and BarMarkers: 10 px per bar, y = 200 - price, every bar spans 90..110. */
+function tradeChart(d) {
+  const chart = {
+    ...stubChart(d),
+    dpr: 1,
+    panes: [{ rect: { y: 20, w: 100, h: 200 }, scale: { y: (v) => 200 - v } }],
+    theme: { mono: 'monospace', accent: '#00f', up: '#0a0', down: '#a00', bg: '#000' },
+    timeScale: { visibleRange: () => [0, 9], x: (i) => 5 + i * 10, barSpacing: 10 },
+    main: { range: () => ({ min: 90, max: 110 }) },
+    options: {},
+  };
+  chart.trades = new TradeMarkers(chart);
+  chart.markers = new BarMarkers(chart);
+  return chart;
+}
+
+test('BarMarkers: stack beyond the arrow and the text chart.trades drew on the same bar and side', () => {
+  const chart = tradeChart(bars(10));
+  const t = T0 + 3 * HOUR + 60_000; // bar 3: high 110 → y 90, low 90 → y 110
+  chart.trades.set([
+    { time: t, price: 100, side: 'sell', tag: 'S 10' }, // an arrow above the bar and its text
+    { time: T0 + 6 * HOUR + 60_000, price: 100, side: 'sell' }, // bar 6
+  ]);
+  chart.markers.set([
+    { time: t, text: 'D' }, // above bar 3, in the trade's way
+    { time: t, position: 'below', text: 'B' }, // below: no trade there, stays next to the bar
+    { time: T0 + 8 * HOUR + 60_000, text: 'E' }, // bar 8 has no trade: unchanged
+  ]);
+  chart.trades.draw(silentContext());
+  const { ctx, log } = stubContext();
+  chart.markers.draw(ctx);
+  const at = Object.fromEntries(log.texts.map(([text, , ty]) => [text, ty]));
+  const alone = 90 - (5 + 4.5) - (4.5 + 3); // where a marker with no trade in the way puts its text
+  assert.equal(at.B, 110 + (5 + 4.5) + (4.5 + 3));
+  assert.equal(at.E, alone);
+  assert.ok(at.D < alone, 'D moved out past the arrow');
+  // the shape (and so its text) starts beyond the top of the arrow and of its label
+  const reach = chart.trades.extentBeyond(35, true, 90, 4.5);
+  assert.ok(reach !== null && reach < 90);
+  assert.ok(at.D + 3 + 4.5 < reach, 'D is clear of the arrow and its label');
+});
+
+test('TradeMarkers.extentBeyond: null when nothing reaches past the anchor', () => {
+  const chart = tradeChart(bars(10));
+  const tm = chart.trades;
+  tm.set([{ time: T0 + 3 * HOUR + 60_000, price: 100, side: 'buy' }]); // an arrow below the bar
+  tm.draw(silentContext());
+  assert.equal(tm.extentBeyond(35, true, 90, 4.5), null); // nothing above
+  assert.ok(tm.extentBeyond(35, false, 110, 4.5) > 110);
+  assert.equal(tm.extentBeyond(75, false, 110, 4.5), null); // another bar
+  // a tick that sticks out above the bar (an after-hours price) counts
+  tm.set([{ time: T0 + 3 * HOUR + 60_000, price: 125, side: 'buy' }]);
+  tm.draw(silentContext());
+  assert.ok(tm.extentBeyond(35, true, 90, 4.5) < 90);
 });

@@ -246,7 +246,7 @@ export class TradeMarkers {
   #stale = true;
   #groups = null;
   #groupGap = NaN;
-  #layout = { arrows: [], marks: [] };
+  #layout = { arrows: [], marks: [], labels: [] };
   #pointer = null;
 
   /* ───────────── List ───────────── */
@@ -415,7 +415,7 @@ export class TradeMarkers {
    * Also records where everything went, for hit testing.
    */
   draw(ctx) {
-    const layout = (this.#layout = { arrows: [], marks: [] });
+    const layout = (this.#layout = { arrows: [], marks: [], labels: [] });
     const chart = this.chart;
     const n = chart.data.length;
     if (!this.#visible || !this.#fills.length || !n) {
@@ -613,10 +613,37 @@ export class TradeMarkers {
       ctx.fill();
     }
 
-    if (this.options.labels) this.#drawLabels(ctx, layout.arrows, colors, W, H);
+    if (this.options.labels) this.#drawLabels(ctx, layout.arrows, colors, W, H, layout.labels);
     ctx.restore();
     // The view may have moved under a resting pointer.
     if (this.#pointer) this.#setHover(this.#hit(this.#pointer.x, this.#pointer.y));
+  }
+
+  /**
+   * How far what the last draw() put around x reaches beyond `anchor` (a pane y: a bar's high for `above`, its low
+   * otherwise): the arrows and labels on that side and the ticks that stick out past it. Returns that y, or null when
+   * nothing reaches beyond the anchor there. `halfWidth` is the half width of whatever wants the room. Other things
+   * drawn on a bar (chart.markers) use it to stay clear of the trades.
+   */
+  extentBeyond(x, above, anchor, halfWidth = 0) {
+    let edge = null;
+    const take = (y) => {
+      if (above ? y < anchor && (edge === null || y < edge) : y > anchor && (edge === null || y > edge)) edge = y;
+    };
+    const { arrows, marks, labels } = this.#layout;
+    for (const a of arrows) {
+      if (a.group.buy === above || Math.abs(a.x - x) > ARROW_W / 2 + halfWidth) continue;
+      take(above ? Math.min(a.tip, a.base) : Math.max(a.tip, a.base));
+    }
+    for (const l of labels) {
+      if (l.above !== above || x < l.x - halfWidth || x > l.x + l.w + halfWidth) continue;
+      take(above ? l.y : l.y + l.h);
+    }
+    for (const m of marks) {
+      if (Math.abs(m.x - x) > m.half + halfWidth) continue;
+      take(above ? m.y - DOT_R - 2 : m.y + DOT_R + 2);
+    }
+    return edge;
   }
 
   #labelOf(group, colors) {
@@ -639,7 +666,7 @@ export class TradeMarkers {
   }
 
   /** Labels beyond the arrows. The newest wins where two would overlap. */
-  #drawLabels(ctx, arrows, colors, W, H) {
+  #drawLabels(ctx, arrows, colors, W, H, shown) {
     const theme = this.chart.theme;
     ctx.font = `600 10px ${theme.mono}`;
     ctx.textAlign = 'center';
@@ -656,6 +683,7 @@ export class TradeMarkers {
       if (y < 0 || y + h > H || x + w < 0 || x > W) continue;
       if (placed.some((p) => x < p.x + p.w + 2 && p.x < x + w + 2 && y < p.y + p.h + 1 && p.y < y + h + 1)) continue;
       placed.push({ x, y, w, h });
+      shown.push({ x, y, w, h, above: !a.group.buy });
       ctx.globalAlpha = 0.86;
       ctx.fillStyle = theme.bg;
       ctx.beginPath();
