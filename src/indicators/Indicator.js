@@ -28,14 +28,19 @@ const VALUE_PLOTS = new Set(['line', 'histogram', 'dots']);
  *     { key, type: 'dots', color },
  *     { type: 'band',  a, b, color, opacity },                 // fill between two lines
  *     { type: 'cloud', a, b, above, below, opacity, offset },  // fill colored by which line is on top
- *     { type: 'custom', back, key, column, draw(view, ctx, self) },
+ *     { type: 'custom', back, key, column, range, draw(view, ctx, self) },
  *       // Draw it yourself. For things whose shape depends on the visible range (e.g. a volume profile).
+ *       // With a `key`, `range: true` makes its values part of the price range (otherwise the plot is not autoscaled to).
  *       // self: { state (per-instance storage), index (LOD of `key`), array, color(c), format(v), tickSize }
  *   ],
  *   legend(ctx, i, theme, self) { return [{ k, v, color }] },   // build the legend yourself
  *   guides: [70, 30],              // horizontal guide lines
  *   zone: [30, 70],                // faint fill between guides
  *   calc({ data, n, from, inputs, out, src, utcOffset, interval }) { ... }
+ *
+ * Values the host computed itself (not derived from the bars) can come in through an input of any type, e.g.
+ * `inputs: { values: { type: 'data', default: null, inTitle: false } }`: `chart.updateIndicator(ind, { values })`
+ * recalculates, and `calc` copies them into `out`.
  * }
  *
  * calc fills out[key][from..n-1]. Everything before `from` still holds the previous results.
@@ -177,7 +182,7 @@ export class Indicator {
     let mx = -Infinity;
     for (const plot of this.def.plots) {
       const idx = this.#index.get(plot.key);
-      if (!idx || plot.type === 'custom') continue;
+      if (!idx || (plot.type === 'custom' && !plot.range)) continue;
       const off = this.#offset(plot);
       const arr = this.#array(plot.key);
       const r = idx.query(arr, arr, ra - off, rb - off);

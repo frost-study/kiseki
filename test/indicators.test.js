@@ -320,3 +320,35 @@ test('indicator styles: the last-value label on the price axis can be turned off
   assert.equal(labels({}), 1);
   assert.equal(labels({ value: { axisLabel: false } }), 0);
 });
+
+test('host-computed values: an input carries them in, calc copies them out, and `range` puts a custom plot into the autoscale', () => {
+  indicators.register({
+    id: 'host-values',
+    name: 'Host',
+    overlay: true,
+    inputs: { values: { type: 'data', default: null, inTitle: false } },
+    plots: [
+      { key: 'shown', type: 'line', color: 0 },
+      { key: 'hidden', type: 'custom', range: true, draw() {} },
+      { key: 'ignored', type: 'custom', draw() {} },
+    ],
+    calc({ inputs, out, from, n }) {
+      const v = inputs.values ?? { shown: [], hidden: [], ignored: [] };
+      for (const key of ['shown', 'hidden', 'ignored']) for (let i = from; i < n; i++) out[key][i] = v[key][i] ?? NaN;
+    },
+  });
+  const d = randomBars(10);
+  const ind = new Indicator(indicators.get('host-values'));
+  ind.attach({ utcOffset: 0, theme: {}, main: { precision: 2 } }, null);
+  ind.setData(d);
+  assert.equal(ind.range(0, 9, 0, 9), null); // no values yet
+  assert.equal(ind.title, 'Host'); // an input of another type adds nothing to the title
+  const mk = (f) => Float64Array.from({ length: 10 }, (_, i) => f(i));
+  ind.setInputs({ values: { shown: mk((i) => 50 + i), hidden: mk((i) => 10 + i), ignored: mk((i) => 1000 + i) } });
+  assert.deepEqual(ind.range(0, 9, 0, 9), { min: 10, max: 59 }); // the plain custom plot (1000…) is left out
+  assert.deepEqual(ind.range(2, 3, 2, 3), { min: 12, max: 53 });
+  // a different length of bars: the copy keeps to what the data has, and NaN where the host has nothing
+  ind.setData(randomBars(12));
+  assert.ok(Number.isNaN(ind.out.shown[11]));
+  assert.equal(ind.out.shown[9], 59);
+});
