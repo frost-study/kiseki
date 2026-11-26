@@ -168,8 +168,12 @@ Also: `add(entry)` `remove(idOrEntry)` `clear()` `visible` `reveal(idOrEntry)` `
 Colors follow the candle scheme unless set. `side` also accepts `'in'` / `'out'`.
 `label` names a fill (it heads the details); `tag` is the short text printed beside the arrow instead (it defaults to `label`).
 On a touch screen a tapped marker keeps its details open until the next tap.
-`addPriceLine({ price, title, color, dash, width, axisLabel, autoscale })` returns the line for
+`addPriceLine({ price, title, color, dash, width, axisLabel, autoscale, box })` returns the line for
 `updatePriceLine` / `removePriceLine`.
+`autoscale: true` keeps the line in the price range; `autoscale: 'near'` does so only while the line is within one price
+range's height of the visible bars, so a target just above the highs is shown and one far away does not flatten the
+candles. `box: true` prints the title in a box at the right edge (surface color, the line's color as the border, plain text
+inside; boxes keep clear of each other) instead of as colored text above the line.
 
 ## Extending
 

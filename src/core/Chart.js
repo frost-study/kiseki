@@ -1,6 +1,7 @@
 import { DrawingManager } from '../drawings/DrawingManager.js';
 import { Indicator } from '../indicators/Indicator.js';
 import { TradeMarkers } from '../trades/TradeMarkers.js';
+import { priceLineRange, spreadBoxes } from './priceLines.js';
 import { BarData } from './BarData.js';
 import { EventEmitter } from './EventEmitter.js';
 import { Interaction } from './Interaction.js';
@@ -476,7 +477,11 @@ export class Chart extends EventEmitter {
    * @param {number[]|null} [options.dash=[5, 4]] dash pattern; null for a solid line
    * @param {number} [options.width=1]
    * @param {boolean} [options.axisLabel=true] show the price on the axis
-   * @param {boolean} [options.autoscale=false] keep the line inside the price range
+   * @param {boolean|'near'} [options.autoscale=false] true keeps the line inside the price range. 'near' does so only while the
+   *   line lies within one price range's height of the main series' visible bars (a target just above the highs is
+   *   shown; one far away would only flatten the candles, so it is left out of the scale and drawn only if it falls in range)
+   * @param {boolean} [options.box=false] print the title in a box on the line at the right edge (the plot's surface color, the
+   *   line's color as its border, plain text inside) instead of as colored text above the line. Boxes keep clear of each other
    * @returns {object} the line; pass it to updatePriceLine() / removePriceLine()
    */
   addPriceLine(options) {
@@ -505,14 +510,9 @@ export class Chart extends EventEmitter {
 
   /** Values the main pane's scale has to show besides its series: visible trade markers and the price lines that ask for it. */
   #extraRange(ra, rb) {
-    let range = this.trades.range(ra, rb);
-    for (const line of this.priceLines) {
-      if (!line.autoscale || !Number.isFinite(line.price)) continue;
-      range ??= { min: line.price, max: line.price };
-      range.min = Math.min(range.min, line.price);
-      range.max = Math.max(range.max, line.price);
-    }
-    return range;
+    const near = this.priceLines.some((l) => l.autoscale === 'near');
+    const own = near && this.main.visible && this.data.length ? this.main.range(Math.max(0, ra), Math.min(this.data.length - 1, rb)) : null;
+    return priceLineRange(this.priceLines, own, this.trades.range(ra, rb));
   }
 
   #drawPriceLines(ctx, plotW, h) {
@@ -520,6 +520,7 @@ export class Chart extends EventEmitter {
     ctx.font = `11px ${this.theme.font}`;
     ctx.textAlign = 'right';
     ctx.lineJoin = 'round';
+    const boxes = [];
     for (const line of this.priceLines) {
       const y = scale.y(line.price);
       if (!(y >= -1 && y <= h + 1)) continue;
@@ -534,6 +535,10 @@ export class Chart extends EventEmitter {
       ctx.stroke();
       ctx.setLineDash([]);
       if (!line.title) continue;
+      if (line.box) {
+        boxes.push({ y, color, title: line.title });
+        continue;
+      }
       // The title sits above the line (below it near the top edge), outlined in the background color so it stays readable over the series.
       const above = Y > 18;
       ctx.textBaseline = above ? 'bottom' : 'top';
@@ -543,6 +548,30 @@ export class Chart extends EventEmitter {
       ctx.strokeText(line.title, plotW - 8, ty);
       ctx.fillStyle = color;
       ctx.fillText(line.title, plotW - 8, ty);
+    }
+    if (boxes.length) this.#drawTitleBoxes(ctx, plotW, h, boxes);
+  }
+
+  /** Titles in boxes at the right edge: the surface color, the line's color as the border, and the text in the plain text color. */
+  #drawTitleBoxes(ctx, plotW, h, boxes) {
+    const theme = this.theme;
+    ctx.font = `11px ${theme.mono}`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 1;
+    const sorted = spreadBoxes(boxes, 19, 9, h - 9);
+    for (const b of sorted) {
+      const w = Math.min(plotW - 8, Math.ceil(ctx.measureText(b.title).width) + 12);
+      const x = plotW - w - 4;
+      const top = Math.round(b.y) - 8;
+      ctx.beginPath();
+      ctx.roundRect(x + 0.5, top + 0.5, w, 17, 2);
+      ctx.fillStyle = theme.bg;
+      ctx.fill();
+      ctx.strokeStyle = b.color;
+      ctx.stroke();
+      ctx.fillStyle = theme.text;
+      ctx.fillText(b.title, x + 6.5, top + 9.5, w - 12);
     }
   }
 
