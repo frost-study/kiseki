@@ -201,7 +201,7 @@ chart.on('marker:hover', (hit) => showHint(hit));              // null when the 
 ## Figures
 
 `Chart` draws bar-indexed time series. **Figures** are for everything else: a sparkline, a fan of bands over time, a bump
-chart, a bar chart on categories, a grid of cells. A figure owns one canvas inside a container, is drawn from `setData`,
+chart, a bar chart on categories, a grid of cells, a donut, a treemap. A figure owns one canvas inside a container, is drawn from `setData`,
 and tells the host where everything is, so the host can lay real DOM controls over it. A working page is in
 [examples/figures.html](examples/figures.html).
 
@@ -238,17 +238,25 @@ fig.on('click', ({ mark }) => select(mark?.datum));       // pointer events are 
 - **`CartesianFigure`**: x and y scales (`linear`, `time` in UNIX ms, `band`; either can be `reverse`d; the domain comes from
   the marks unless given), optional axes and grid with host-formatted labels (`format(value)` or `formatTicks(values)`),
   and margins that fit the labels and the end labels. Marks are drawn in the order given:
-  `line` (gaps, step, halo, dash) · `area` (between `y0` and `y1`) · `bar` (vertical or horizontal; give each segment its own
-  `from` / `to`, see `stackValues`, for stacked or diverging bars) · `dot` · `rule` · `region` · `cell` (band × band) ·
-  `text` (`at: 'end'` end labels; `place` keeps labels from overlapping) · `arrow`. Colors are CSS colors, palette indices
+  `line` (gaps, step, halo, dash; `fade` makes a trail whose segments grow more opaque, `vertices` dots its points) · `area`
+  (between `y0` and `y1`) · `bar` (vertical or horizontal; give each segment its own `from` / `to`, see `stackValues`, for
+  stacked or diverging bars) · `dot` (optionally outlined, dashed) · `rule` · `region` (outlined; `label` prints words in a
+  corner) · `cell` (band × band) · `text` (`at: 'end'` end labels; `place` keeps labels from overlapping) · `arrow` (an exact
+  `headLength` × `headWidth`) · `link` (an S-shaped ribbon between two points, `direction: 'h' | 'v'`). Colors are CSS colors, palette indices
   or role names (`'up'` `'down'` `'accent'` `'muted'` `'text'` `'series'` `'grid'` `'axis'` `'faint'` `'surface'` …).
-- **Presets** are registered in `figureTypes` (`'cartesian'`, `'sparkline'`) and created with `createFigure(el, id, options)`.
+- **Presets** are registered in `figureTypes` (`'cartesian'`, `'sparkline'`, `'donut'`, `'treemap'`) and created with `createFigure(el, id, options)`.
   `'sparkline'`: a line on its own y scale, a dashed baseline at the first value (`baseline: 'start'`), at a number, or none
   (`null`), and an end dot that follows the direction of the change (`tone: 'direction'`) or has the line's color.
+  `'donut'`: `setData([{ id, value, color, datum }])` draws ring sectors (`outer`, `innerRatio`, `cornerRadius`, `padAngle`, an optional
+  `label` in the middle); each sector with an `id` is a `'arc'` mark. `'treemap'`: `setData([{ id, value, fill, border, stripe, lines }])`
+  lays the tiles out squarified (`gap`, rounded to whole pixels) and prints each tile's `lines` while they fit; a tile's mark says
+  how many lines were `shown`, so a host can show the rest elsewhere.
   Add your own the way `seriesTypes` works: extend `Figure` (implement `paint(ctx)`, call `this.expose(...)` for marks that can be
   pointed at) and `figureTypes.register(Class)`; new marks go through `markTypes.register({ id, extent, draw })`.
 - **Pure helpers**, tested without a DOM: `linearScale` `timeScale` `bandScale` `makeScale` `timeTicks` (calendar ticks)
-  · `spreadLabels` `placeTickLabels` `placeBoxes` · `stackValues` · `hitTest`.
+  · `spreadLabels` `placeTickLabels` `placeBoxes` · `stackValues` · `hitTest` · `nextInDirection` (the mark to move to with an arrow
+  key, for tiles and cells) · `squarify` `fitLines` `ellipsize` (treemap) · `donutSlices` `sectorOutline` `sectorBounds` (donut) ·
+  `fadeOpacities` `linkPoints`.
 - **Words.** Figures print no words of their own: tick labels, end labels and text marks all come from the host.
 
 ## Extending

@@ -37,10 +37,13 @@ export { TradeMarkers, barIndexAt, groupFills, normalizeTrades, positionOf, trad
 export { Figure } from './figures/Figure.js';
 export { CartesianFigure } from './figures/CartesianFigure.js';
 export { SparklineFigure, sparklineMarks, directionOf } from './figures/sparkline.js';
+export { DonutFigure, donutSlices, sectorOutline, sectorBounds } from './figures/donut.js';
+export { TreemapFigure, squarify, fitLines, ellipsize, PHI } from './figures/treemap.js';
 export { createFigure } from './figures/create.js';
 export { linearScale, timeScale, bandScale, makeScale, niceDomain, timeTicks } from './figures/scales.js';
-export { spreadLabels, placeTickLabels, placeBoxes, stackValues } from './figures/layout.js';
+export { spreadLabels, placeTickLabels, placeBoxes, stackValues, nextInDirection } from './figures/layout.js';
 export { hitTest, distanceTo } from './figures/hit.js';
+export { fadeOpacities, linkPoints } from './figures/marks.js';
 export { sampleTrades } from './data/sample-trades.js';
 export { TIMEFRAMES, timeframeById, bucketStart, resample, aggregateTicks, Aggregator } from './data/timeframes.js';
 export { decodeText, parseCsv } from './data/csv.js';

@@ -3,7 +3,10 @@ import { test } from 'node:test';
 import { figureTypes, markTypes } from '../src/core/Registry.js';
 import { resolveColor, resolveTheme } from '../src/core/theme.js';
 import { hitTest } from '../src/figures/hit.js';
-import { placeBoxes, placeTickLabels, spreadLabels, stackValues } from '../src/figures/layout.js';
+import { donutSlices, sectorBounds, sectorOutline } from '../src/figures/donut.js';
+import { fadeOpacities, linkPoints } from '../src/figures/marks.js';
+import { ellipsize, fitLines, squarify } from '../src/figures/treemap.js';
+import { nextInDirection, placeBoxes, placeTickLabels, spreadLabels, stackValues } from '../src/figures/layout.js';
 import { bandScale, linearScale, makeScale, niceDomain, timeScale, timeTicks } from '../src/figures/scales.js';
 import { directionOf, sparklineMarks } from '../src/figures/sparkline.js';
 
@@ -174,7 +177,136 @@ test('resolveColor: the neutral roles figures need, palette indices and plain CS
 
 test('registries: the figures and marks built in, and an unknown id is an error', async () => {
   await import('../src/index.js');
-  for (const id of ['cartesian', 'sparkline']) assert.ok(figureTypes.has(id), id);
-  for (const id of ['line', 'area', 'bar', 'dot', 'rule', 'region', 'cell', 'text', 'arrow']) assert.ok(markTypes.has(id), id);
+  for (const id of ['cartesian', 'sparkline', 'donut', 'treemap']) assert.ok(figureTypes.has(id), id);
+  for (const id of ['line', 'area', 'bar', 'dot', 'rule', 'region', 'cell', 'text', 'arrow', 'link']) assert.ok(markTypes.has(id), id);
   assert.throws(() => markTypes.get('nope'), /Unknown mark type: nope/);
+});
+
+/* ───────────── treemap layout ───────────── */
+
+test('squarify: the same tiles as d3-hierarchy treemapSquarify with paddingInner(2) and round(true), largest first', () => {
+  const values = [30, 5, 12, 8, 20, 3, 22].map((value) => ({ value }));
+  const tiles = squarify(values, { width: 400, height: 220, gap: 2 });
+  assert.deepEqual(
+    tiles.map((t) => [t.index, t.x0, t.y0, t.x1, t.y1]),
+    [[0, 0, 0, 207, 126], [6, 0, 128, 207, 220], [4, 209, 0, 328, 146], [2, 330, 0, 400, 146], [3, 209, 148, 304, 220], [1, 306, 148, 364, 220], [5, 366, 148, 400, 220]],
+  );
+});
+
+test('squarify: areas follow the values, no gap tiles the box exactly, bad values and boxes leave nothing', () => {
+  const tiles = squarify([{ value: 6 }, { value: 3 }, { value: 1 }, { value: 0 }, { value: -2 }, { value: NaN }, null], { width: 100, height: 50, round: false });
+  assert.deepEqual(tiles.map((t) => t.index), [0, 1, 2]);
+  const area = (t) => (t.x1 - t.x0) * (t.y1 - t.y0);
+  near(area(tiles[0]), 3000, 1e-6);
+  near(area(tiles[1]), 1500, 1e-6);
+  near(area(tiles[2]), 500, 1e-6);
+  near(tiles.reduce((a, t) => a + area(t), 0), 5000, 1e-6);
+  assert.ok(tiles.every((t) => t.x0 >= -1e-9 && t.y0 >= -1e-9 && t.x1 <= 100 + 1e-9 && t.y1 <= 50 + 1e-9));
+  assert.deepEqual(squarify([], { width: 10, height: 10 }), []);
+  assert.deepEqual(squarify([{ value: 1 }], { width: 0, height: 10 }), []);
+  const one = squarify([{ value: 4 }], { width: 90, height: 40, gap: 2 });
+  assert.deepEqual([one[0].x0, one[0].y0, one[0].x1, one[0].y1], [0, 0, 90, 40], 'a lone tile fills the box, the gap only lies between tiles');
+});
+
+test('fitLines: a tile shows its title, or its title and value, or nothing; a line that does not fit hides the ones after it', () => {
+  const lines = [{ minW: 40, minH: 22 }, { minW: 76, minH: 44 }];
+  assert.equal(fitLines(lines, 100, 60), 2);
+  assert.equal(fitLines(lines, 60, 60), 1);
+  assert.equal(fitLines(lines, 100, 30), 1);
+  assert.equal(fitLines(lines, 39, 60), 0);
+  assert.equal(fitLines([{ minW: 80 }, { minW: 10 }], 50, 50), 0, 'the second line does not show alone');
+  assert.equal(fitLines(undefined, 50, 50), 0);
+});
+
+test('ellipsize: text that fits is kept, otherwise the longest prefix with an ellipsis that fits', () => {
+  const measure = (s) => s.length * 10;
+  assert.equal(ellipsize(measure, 'Energy', 60), 'Energy');
+  assert.equal(ellipsize(measure, 'Technology', 60), 'Techn…');
+  assert.equal(ellipsize(measure, 'Technology', 15), '…');
+  assert.equal(ellipsize(measure, 'Technology', 5), '');
+});
+
+/* ───────────── donut geometry ───────────── */
+
+test('donutSlices: proportional spans from 12 o\'clock, a gap per slice only with two or more, non-positive values leave no slice', () => {
+  const s = donutSlices([{ value: 1 }, { value: 0 }, { value: 3 }], { padAngle: 0.1 });
+  assert.deepEqual(s.map((x) => x.index), [0, 2]);
+  near(s[0].a0, -Math.PI / 2);
+  near(s[1].a1, -Math.PI / 2 + Math.PI * 2);
+  near(s[0].a1, s[1].a0);
+  const spans = s.map((x) => x.a1 - x.a0 - 0.1);
+  near(spans[1] / spans[0], 3);
+  near(s[0].share, 0.25);
+  const one = donutSlices([{ value: 5 }], { padAngle: 0.1 });
+  near(one[0].a1 - one[0].a0, Math.PI * 2);
+  assert.deepEqual(donutSlices([], {}), []);
+  assert.deepEqual(donutSlices([{ value: 0 }]), []);
+});
+
+test('sectorOutline: the corner circles touch both circles and the side lines; a whole ring has none; a sliver is dropped', () => {
+  const o = sectorOutline({ cx: 0, cy: 0, r0: 54, r1: 80, a0: 0.2, a1: 1.5, gap: 2.4, corner: 2 });
+  assert.equal(o.whole, false);
+  assert.equal(o.corners.length, 4);
+  const [outerStart, outerEnd, innerEnd, innerStart] = o.corners;
+  // the corner circles of the outer edge sit r1 - cr from the centre, those of the inner edge r0 + cr
+  for (const c of [outerStart, outerEnd]) near(Math.hypot(c.cx, c.cy), 78, 1e-9);
+  for (const c of [innerEnd, innerStart]) near(Math.hypot(c.cx, c.cy), 56, 1e-9);
+  // the first side is 1.2 px from the radius at its angle, and the corner circle's centre 1.2 + 2 from it
+  const n0 = { x: -Math.sin(0.2), y: Math.cos(0.2) };
+  near(outerStart.cx * n0.x + outerStart.cy * n0.y, 3.2, 1e-9);
+  assert.deepEqual(o.start, { x: outerStart.cx - n0.x * 2, y: outerStart.cy - n0.y * 2 });
+  const whole = sectorOutline({ r0: 54, r1: 80, a0: 0, a1: Math.PI * 2, gap: 0, corner: 2 });
+  assert.equal(whole.whole, true);
+  assert.equal(sectorOutline({ r0: 54, r1: 80, a0: 0, a1: 0.01, gap: 6, corner: 2 }), null, 'thinner than its gap');
+  assert.equal(sectorOutline({ r0: 80, r1: 54, a0: 0, a1: 1 }), null);
+  const sharp = sectorOutline({ r0: 54, r1: 80, a0: 0, a1: 1, gap: 0, corner: 0 });
+  assert.equal(sharp.cr, 0);
+});
+
+test('sectorBounds: covers the arc ends and the extremes the sector sweeps over', () => {
+  const b = sectorBounds({ cx: 100, cy: 100, r0: 20, r1: 50, a0: -0.1, a1: Math.PI / 2 + 0.1 });
+  assert.ok(b.x + b.w >= 150 - 1e-9 && b.y + b.h >= 150 - 1e-9, 'reaches the outer circle on the right and at the bottom');
+  assert.ok(b.x >= 100 - 50 * Math.sin(0.1) - 1e-9 && b.x <= 100);
+});
+
+test('hitTest: a ring sector is hit between its radii and angles, and by the distance to its sides outside them', () => {
+  const arc = { id: 'a', kind: 'arc', cx: 50, cy: 50, r0: 20, r1: 40, a0: 0, a1: Math.PI / 2, x: 50, y: 50, w: 40, h: 40 };
+  assert.equal(hitTest([arc], 50 + 30 * Math.cos(0.7), 50 + 30 * Math.sin(0.7))?.id, 'a');
+  assert.equal(hitTest([arc], 50 + 10, 50 + 1), null, 'inside the hole');
+  assert.equal(hitTest([arc], 50 + 45, 50 + 1), null, 'outside the ring');
+  assert.equal(hitTest([arc], 50 - 30, 50), null, 'the other half');
+  assert.equal(hitTest([arc], 50 + 30, 50 - 2, 3)?.id, 'a', 'just past the first side, within the slop');
+});
+
+/* ───────────── small pure helpers ───────────── */
+
+test('nextInDirection: the nearest mark centre to centre, a mark off to the side counts double, null at the edge', () => {
+  const grid = [];
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) grid.push({ id: `${r}${c}`, x: c * 30, y: r * 30, w: 28, h: 28 });
+  assert.equal(nextInDirection(grid, '11', 'right'), '12');
+  assert.equal(nextInDirection(grid, '11', 'left'), '10');
+  assert.equal(nextInDirection(grid, '11', 'up'), '01');
+  assert.equal(nextInDirection(grid, '11', 'down'), '21');
+  assert.equal(nextInDirection(grid, '02', 'right'), null);
+  assert.equal(nextInDirection(grid, '00', 'up'), null);
+  assert.equal(nextInDirection(grid, 'nope', 'up'), null);
+  // a wide tile on top: from the small tile below its right half, up goes to it, not to a farther one
+  const odd = [{ id: 'top', x: 0, y: 0, w: 100, h: 20 }, { id: 'a', x: 0, y: 30, w: 40, h: 20 }, { id: 'b', x: 60, y: 30, w: 40, h: 20 }];
+  assert.equal(nextInDirection(odd, 'b', 'up'), 'top');
+  assert.equal(nextInDirection(odd, 'a', 'right'), 'b');
+});
+
+test('fadeOpacities: from the first to the last segment, a lone segment is the last value; linkPoints: from one end to the other', () => {
+  assert.deepEqual(fadeOpacities(0), []);
+  assert.deepEqual(fadeOpacities(1), [0.9]);
+  const f = fadeOpacities(5, { from: 0.1, to: 0.9 });
+  near(f[0], 0.1);
+  near(f[4], 0.9);
+  near(f[2], 0.5);
+  const h = linkPoints({ x: 0, y: 0 }, { x: 100, y: 40 }, 'h', 4);
+  assert.deepEqual([h[0], h.at(-1)], [{ x: 0, y: 0 }, { x: 100, y: 40 }]);
+  near(h[2].x, 50);
+  near(h[2].y, 20);
+  const v = linkPoints({ x: 0, y: 0 }, { x: 40, y: 100 }, 'v', 4);
+  near(v[1].x, 40 * 0.15625, 1e-9); // 3 u^2 t * 0 + 3 u t^2 * x + t^3 * x at t = 1/4
 });

@@ -41,9 +41,20 @@
 
       <h2>Bars on a band scale</h2>
       <div class="box" id="bars"></div>
+
+      <h2>Donut and treemap</h2>
+      <p>Sectors and tiles are marks too: point at them. A tile says how many of its text lines fit.</p>
+      <div class="row">
+        <div id="donut" style="width: 160px; height: 160px"></div>
+        <div class="box" id="tree" style="flex: 1; min-width: 280px"></div>
+      </div>
+
+      <h2>A trail with an arrow head, and a ribbon</h2>
+      <p>A faded <code>line</code> with <code>vertices</code>, an <code>arrow</code> head, a <code>region</code> with corner words and a <code>link</code>.</p>
+      <div class="box" id="trail"></div>
     </main>
     <script type="module">
-      import { CartesianFigure, createFigure, stackValues } from '../src/index.js';
+      import { CartesianFigure, createFigure, stackValues, nextInDirection } from '../src/index.js';
 
       // deterministic pseudo-random numbers
       let seed = 7;
@@ -131,6 +142,37 @@
       bars.setData([
         { type: 'rule', y: 0, color: 'axis' },
         ...stacks.flatMap((s, k) => s.map((seg, i) => ({ type: 'bar', x: months[i], from: seg.from, to: seg.to, color: k }))),
+      ]);
+
+      // Donut and treemap
+      const donut = createFigure(document.getElementById('donut'), 'donut', { width: 160, height: 160, theme, label: { text: '100%', size: 13 } });
+      donut.setData([40, 30, 18, 8, 4].map((value, i) => ({ id: 'd' + i, value, color: i })));
+      donut.on('hover', ({ mark }) => donut.setActive(mark?.id ?? null));
+      const tree = createFigure(document.getElementById('tree'), 'treemap', { theme, gap: 2, emphasis: { active: { width: 2, inset: true } } });
+      tree.setData([30, 5, 12, 8, 20, 3, 22, 9].map((value, i) => ({
+        id: 't' + i, value, fill: i % 6, border: null,
+        lines: [{ text: 'Tile ' + i, weight: 500, color: 'bg', minW: 40, minH: 22 }, { text: '+' + (value / 10).toFixed(1) + '%', color: 'bg', minW: 76, minH: 44 }],
+      })));
+      tree.on('hover', ({ mark }) => tree.setActive(mark?.id ?? null));
+      tree.on('layout', (marks) => { window.treeMarks = marks; }); // nextInDirection(marks, id, 'right') moves focus between tiles
+
+      // Trail
+      const trail = new CartesianFigure(document.getElementById('trail'), {
+        theme,
+        margin: 8,
+        x: { domain: [94, 106] },
+        y: { domain: [94, 106] },
+      });
+      const path = [[97, 96], [98, 98], [99.5, 99], [101, 101.5], [103, 102], [104, 104.5]];
+      trail.setData([
+        { type: 'region', x0: 94, x1: 100, y0: 100, y1: 106, color: 'accent', opacity: 0.06, label: { corner: 'tl', lines: [{ text: 'Improving', weight: 500, color: 'muted' }, { text: 'gain from a low base', color: 'faint' }] } },
+        { type: 'region', x0: 100, x1: 106, y0: 100, y1: 106, color: 'up', opacity: 0.06, label: { corner: 'tr', lines: [{ text: 'Leading', weight: 500, color: 'muted' }] } },
+        { type: 'region', x0: 94, x1: 100, y0: 94, y1: 100, color: 'down', opacity: 0.06, label: { corner: 'bl', dy: 10, lines: [{ text: 'Lagging', weight: 500, color: 'muted' }] } },
+        { type: 'region', x0: 100, x1: 106, y0: 94, y1: 100, color: 'muted', opacity: 0.06, label: { corner: 'br', dy: 10, lines: [{ text: 'Weakening', weight: 500, color: 'muted' }] } },
+        { type: 'line', points: path, color: 'accent', width: 2, fade: { from: 0.15, to: 0.9 }, vertices: { r: 2 } },
+        { type: 'arrow', from: { x: path.at(-2)[0], y: path.at(-2)[1] }, to: { x: path.at(-1)[0], y: path.at(-1)[1] }, stem: false, headLength: 6, headWidth: 5, color: 'accent', opacity: 0.9 },
+        { type: 'dot', x: 104, y: 104.5, r: 5, color: 'accent', stroke: 'surface', strokeWidth: 1.5 },
+        { type: 'link', from: { x: 95, y: 95 }, to: { x: 99, y: 95.5 }, width: 6, color: 'muted', opacity: 0.4 },
       ]);
     </script>
   </body>

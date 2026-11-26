@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { afterEach, beforeEach, test } from 'node:test';
 import { CartesianFigure } from '../src/figures/CartesianFigure.js';
 import { SparklineFigure } from '../src/figures/sparkline.js';
+import { DonutFigure } from '../src/figures/donut.js';
+import { TreemapFigure } from '../src/figures/treemap.js';
 import { createFigure } from '../src/figures/create.js';
 import '../src/figures/builtins.js';
 
@@ -325,4 +327,117 @@ test('axis ticks may be a function of the axis length, and a tick can carry its 
   fig.renderNow();
   assert.deepEqual(lengths, [fig.plot.w]);
   assert.ok(fig.canvas.log.some((c) => c[0] === 'set strokeStyle' && c[1] === '#f00'));
+});
+
+/* ───────────── donut, treemap and the marks added for them ───────────── */
+
+test('donut: one filled sector per positive value, exposed as arc marks that hit-test, a label in the middle', () => {
+  const fig = new DonutFigure(element('div'), { width: 160, height: 160, label: { text: '42', size: 14 } });
+  fig.setData([{ id: 'a', value: 3, color: 0 }, { id: 'zero', value: 0, color: 1 }, { id: 'b', value: 1, color: 2, datum: { n: 2 } }]);
+  fig.renderNow();
+  assert.deepEqual(fig.marks.map((m) => m.id), ['a', 'b']);
+  assert.deepEqual(fig.ring, { cx: 80, cy: 80, r0: 80 * 0.68, r1: 80 });
+  assert.equal(calls(fig, 'fill').length, 2);
+  assert.equal(calls(fig, 'fillText')[0][1], '42');
+  const a = fig.markById('a');
+  assert.equal(a.kind, 'arc');
+  assert.ok(a.a1 > a.a0);
+  const mid = (a.a0 + a.a1) / 2;
+  const r = (a.r0 + a.r1) / 2;
+  assert.equal(fig.markAt(80 + r * Math.cos(mid), 80 + r * Math.sin(mid)).id, 'a');
+  assert.equal(fig.markAt(80, 80), null, 'the hole');
+  assert.deepEqual(fig.markById('b').datum, { n: 2 });
+  // keyboard focus ring on a sector
+  fig.setActive('a');
+  fig.renderNow();
+  assert.ok(calls(fig, 'arc').length > 8);
+});
+
+test('donut: a single slice is a whole ring without a gap', () => {
+  const fig = new DonutFigure(element('div'), { width: 100, height: 100 });
+  fig.setData([{ id: 'only', value: 5, color: 0 }]);
+  fig.renderNow();
+  const arcs = calls(fig, 'arc');
+  assert.equal(arcs.length, 2);
+  assert.deepEqual([arcs[0][3], arcs[1][3]], [50, 34]);
+});
+
+test('treemap: tiles are squarified with the gap, rounded to pixels, and each reports how many of its lines fit', () => {
+  const fig = new TreemapFigure(element('div'), { width: 400, height: 220, gap: 2 });
+  const rows = [30, 5, 12, 8, 20, 3, 22].map((value, i) => ({
+    id: `t${i}`, value, fill: i, datum: { i },
+    lines: [{ text: `Tile ${i}`, weight: 500, minW: 40, minH: 22 }, { text: '+1.0%', minW: 76, minH: 44 }],
+  }));
+  fig.setData(rows);
+  let seen = null;
+  fig.on('layout', (m) => (seen = m));
+  runFrames();
+  assert.equal(seen.length, 7);
+  const big = fig.markById('t0');
+  assert.deepEqual([big.x, big.y, big.w, big.h], [0, 0, 207, 126]);
+  assert.deepEqual([big.shown, big.lines, big.full], [2, 2, true]);
+  const small = fig.markById('t5'); // 34 x 72: wide enough for nothing
+  assert.deepEqual([small.w, small.h, small.shown, small.full], [34, 72, 0, false]);
+  const mid = fig.markById('t3'); // 95 x 72
+  assert.equal(mid.full, true);
+  // text is drawn for the tiles that fit, and only for them
+  const texts = calls(fig, 'fillText').map((c) => c[1]);
+  assert.ok(texts.includes('Tile 0') && texts.includes('+1.0%'));
+  assert.ok(!texts.includes('Tile 5'));
+  assert.equal(fig.markAt(10, 10).id, 't0');
+  assert.deepEqual(fig.markById('t3').datum, { i: 3 });
+});
+
+test('treemap: a stripe and a border are painted inside the tile, a long title is cut with an ellipsis at the tile\'s edge', () => {
+  const fig = new TreemapFigure(element('div'), { width: 100, height: 60 });
+  fig.setData([{ id: 'x', value: 1, fill: 'surface', border: { color: 'border' }, stripe: { color: 1, width: 4 }, lines: [{ text: 'A very long title indeed', minW: 10, minH: 10 }] }]);
+  fig.renderNow();
+  assert.ok(calls(fig, 'clip').length === 1);
+  const text = calls(fig, 'fillText')[0];
+  assert.ok(text[1].endsWith('…') && text[1].length < 24);
+  assert.equal(text[2], 4 + 6, 'the words start after the stripe and the padding');
+  assert.ok(calls(fig, 'fillRect').some((c) => c[3] === 4), 'the stripe');
+});
+
+test('cartesian: a faded line is stroked per segment with rising opacity and dots at all but its last point', () => {
+  const fig = new CartesianFigure(element('div'), { width: 100, height: 100, x: { domain: [0, 4] }, y: { domain: [0, 4] } });
+  fig.setData([{ type: 'line', points: [[0, 0], [1, 1], [2, 1.5], [3, 3]], color: 'series', width: 2, fade: { from: 0.2, to: 0.8 }, vertices: { r: 2 } }]);
+  fig.renderNow();
+  assert.equal(calls(fig, 'stroke').length, 3);
+  const alphas = fig.canvas.log.filter((c) => c[0] === 'set globalAlpha').map((c) => c[1]);
+  const seg = alphas.filter((a) => a !== 1);
+  assert.deepEqual(seg.slice(0, 3).map((a) => +a.toFixed(3)), [0.2, 0.5, 0.8]);
+  assert.equal(calls(fig, 'arc').length, 3, 'a dot at each point but the last');
+});
+
+test('cartesian: a region prints its corner words, an arrow takes an exact head, a dot dashes its outline, a link is a path mark', () => {
+  const fig = new CartesianFigure(element('div'), { width: 200, height: 100, x: { domain: [0, 10] }, y: { domain: [0, 10] } });
+  fig.setData([
+    { type: 'region', x0: 0, x1: 5, y0: 5, y1: 10, color: 'accent', opacity: 0.1, stroke: 'border', label: { corner: 'tl', lines: [{ text: 'Name', size: 12 }, { text: 'gloss', size: 12 }] } },
+    { type: 'region', x0: 5, x1: 10, y0: 0, y1: 5, color: null, label: { corner: 'br', dy: 10, lines: [{ text: 'Low' }, { text: 'gloss' }] } },
+    { type: 'arrow', from: { x: 1, y: 1 }, to: { x: 5, y: 1 }, stem: false, headLength: 6, headWidth: 5 },
+    { type: 'dot', x: 2, y: 2, r: 5, color: null, stroke: 'text', strokeWidth: 1.25, strokeDash: [2.5, 2] },
+    { type: 'link', id: 'l', from: { x: 0, y: 1 }, to: { x: 10, y: 9 }, width: 6, opacity: 0.5 },
+  ]);
+  fig.renderNow();
+  const words = calls(fig, 'fillText');
+  assert.deepEqual(words.slice(0, 2).map((c) => [c[1], c[2], c[3]]), [['Name', 10, 18], ['gloss', 10, 32]]);
+  assert.deepEqual(words.slice(2).map((c) => [c[1], c[2], c[3]]), [['Low', 200 - 10, 100 - 10 - 14], ['gloss', 200 - 10, 100 - 10]]);
+  assert.equal(calls(fig, 'bezierCurveTo').length, 1);
+  assert.ok(fig.canvas.log.some((c) => c[0] === 'setLineDash' && c[1].join() === '2.5,2'));
+  const l = fig.markById('l');
+  assert.equal(l.kind, 'path');
+  assert.equal(fig.markAt(100, 50)?.id, 'l', 'the middle of the ribbon');
+  // head: tip at x = 100 (value 5), base 6 px back, 5 px wide
+  const lines = calls(fig, 'lineTo');
+  const head = lines.slice(-2);
+  assert.deepEqual(head.map((c) => [c[1], Math.abs(c[2] - 90)]), [[94, 2.5], [94, 2.5]]);
+});
+
+test('an inset emphasis rings a box inside its edge', () => {
+  const fig = new TreemapFigure(element('div'), { width: 100, height: 50, emphasis: { active: { width: 2, inset: true } } });
+  fig.setData([{ id: 'x', value: 1, fill: 0 }]);
+  fig.setActive('x');
+  fig.renderNow();
+  assert.deepEqual(calls(fig, 'strokeRect').at(-1).slice(1), [1, 1, 98, 48]);
 });
