@@ -123,3 +123,33 @@ export function stackValues(series, mode = 'stack') {
   }
   return out;
 }
+
+/**
+ * The mark to move to from `fromId` with an arrow key (a roving focus over tiles or cells): the nearest one, centre to centre,
+ * in that direction, where being off to the side counts double (so ← from a tile goes to its left neighbour, not to something
+ * far left on another row). `boxes` are `{ id, x, y, w, h }` (the marks a figure exposes). Null at the edge, or for an unknown id.
+ * @param {{id:string|number, x:number, y:number, w:number, h:number}[]} boxes
+ * @param {'left'|'right'|'up'|'down'} dir
+ */
+export function nextInDirection(boxes, fromId, dir) {
+  const from = boxes.find((b) => b.id === fromId);
+  if (!from) return null;
+  const cx = from.x + from.w / 2;
+  const cy = from.y + from.h / 2;
+  let best = null;
+  let bestScore = Infinity;
+  for (const b of boxes) {
+    if (b.id === fromId) continue;
+    const dx = b.x + b.w / 2 - cx;
+    const dy = b.y + b.h / 2 - cy;
+    const along = dir === 'right' ? dx : dir === 'left' ? -dx : dir === 'down' ? dy : -dy;
+    if (along <= 0.5) continue;
+    const across = dir === 'left' || dir === 'right' ? Math.abs(dy) : Math.abs(dx);
+    const score = along + 2 * across;
+    if (score < bestScore) {
+      best = b.id;
+      bestScore = score;
+    }
+  }
+  return best;
+}

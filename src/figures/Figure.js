@@ -52,7 +52,8 @@ function schedule(fig) {
  * @param {number} [options.height]  fixed height in CSS px
  * @param {number} [options.hitSlop=0]  how far from a mark (px) the pointer still counts as on it
  * @param {string} [options.cursor='pointer']  the CSS cursor while the pointer is on a mark
- * @param {{active?: object, selected?: object}} [options.emphasis]  look of setActive / setSelected: { color, width }
+ * @param {{active?: object, selected?: object}} [options.emphasis]  look of setActive / setSelected: { color, width, inset }
+ *   (`inset` draws the ring of a box inside its edge instead of around it)
  */
 export class Figure extends EventEmitter {
   static id = 'figure';
@@ -253,12 +254,16 @@ export class Figure extends EventEmitter {
         if (run.length === 1) ctx.lineTo(run[0].x + 0.01, run[0].y);
       }
       ctx.stroke();
+    } else if (mark.kind === 'arc') {
+      ctx.beginPath();
+      ctx.arc(mark.cx, mark.cy, mark.r1 + 1 + look.width / 2, 0, Math.PI * 2);
+      ctx.stroke();
     } else if (mark.kind === 'circle') {
       ctx.beginPath();
       ctx.arc(mark.cx, mark.cy, mark.r + 2 + look.width / 2, 0, Math.PI * 2);
       ctx.stroke();
     } else {
-      const pad = 1 + look.width / 2;
+      const pad = look.inset ? -look.width / 2 : 1 + look.width / 2;
       ctx.strokeRect(mark.x - pad, mark.y - pad, mark.w + 2 * pad, mark.h + 2 * pad);
     }
     ctx.restore();

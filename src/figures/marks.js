@@ -83,9 +83,21 @@ function crisp(v, width, dpr) {
 }
 
 /**
- * line: { points, color, width = 1.5, dash, opacity, curve: 'linear' | 'step', pointRadius, halo: { color, width }, hit }
+ * Opacity of each segment of a faded line: from `from` (the first segment) rising evenly to `to` (the last). A line of one
+ * segment gets `to`. Pure.
+ */
+export function fadeOpacities(count, { from = 0.15, to = 0.9 } = {}) {
+  return Array.from({ length: count }, (_, i) => (count > 1 ? from + (i / (count - 1)) * (to - from) : to));
+}
+
+/**
+ * line: { points, color, width = 1.5, dash, opacity, curve: 'linear' | 'step', pointRadius, halo: { color, width }, hit,
+ *         fade: { from = 0.15, to = 0.9 }, vertices: { r = 2 } }
  * A run of one point is drawn as a dot of `pointRadius` (default: the line width). `hit` is the width of the zone that counts
  * as on the line for pointing (default 14).
+ * `fade` draws every segment on its own with an opacity that rises from `from` at the first one to `to` at the last (a
+ * trail that shows which way it went); it multiplies `opacity`, and it ignores `dash` and `curve`. `vertices` puts a dot of
+ * radius `r` on every point but the last of each run, with the opacity of the segment that starts there.
  */
 const line = {
   id: 'line',
@@ -115,7 +127,37 @@ const line = {
     };
     ctx.globalAlpha = s.opacity ?? 1;
     if (s.halo) paint(env.color(s.halo.color), s.halo.width ?? width + 3, false);
-    paint(env.color(s.color ?? 'series'), width, true);
+    if (s.fade) {
+      const color = env.color(s.color ?? 'series');
+      const base = s.opacity ?? 1;
+      const segs = runs.reduce((n, run) => n + Math.max(0, run.length - 1), 0);
+      const alphas = fadeOpacities(segs, s.fade);
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = width;
+      ctx.setLineDash([]);
+      let k = 0;
+      for (const run of runs) {
+        for (let i = 1; i < run.length; i++, k++) {
+          ctx.globalAlpha = base * alphas[k];
+          ctx.beginPath();
+          ctx.moveTo(run[i - 1].x, run[i - 1].y);
+          ctx.lineTo(run[i].x, run[i].y);
+          ctx.stroke();
+        }
+      }
+      if (s.vertices) {
+        k = 0;
+        for (const run of runs) {
+          for (let i = 0; i < run.length - 1; i++, k++) {
+            ctx.globalAlpha = base * (alphas[k] ?? s.fade.to ?? 0.9);
+            ctx.beginPath();
+            ctx.arc(run[i].x, run[i].y, s.vertices.r ?? 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+    } else paint(env.color(s.color ?? 'series'), width, true);
     ctx.restore();
     const tol = Math.max(width, s.hit ?? 14) / 2;
     return { kind: 'path', runs, width, tol, ...bounds(runs.flat(), tol) };
@@ -226,7 +268,7 @@ const bar = {
   },
 };
 
-/** dot: { x, y, r = 3, color, stroke, strokeWidth, opacity } — a filled circle (with an optional outline in `stroke`). */
+/** dot: { x, y, r = 3, color, stroke, strokeWidth, strokeDash, opacity } — a filled circle with an optional, optionally dashed, outline in `stroke` (`color: null` leaves it unfilled). */
 const dot = {
   id: 'dot',
   extent: (s) => ({ x: [s.x], y: [s.y] }),
@@ -247,6 +289,7 @@ const dot = {
     if (s.stroke) {
       ctx.strokeStyle = env.color(s.stroke);
       ctx.lineWidth = s.strokeWidth ?? 1;
+      if (s.strokeDash) ctx.setLineDash(s.strokeDash);
       ctx.stroke();
     }
     ctx.restore();
@@ -289,7 +332,14 @@ const rule = {
   },
 };
 
-/** region: { x0, x1, y0, y1, color, opacity } — a shaded span; a missing bound runs to the edge of the plot. */
+/**
+ * region: { x0, x1, y0, y1, color, opacity, stroke, strokeWidth, strokeDash, label } — a shaded span; a missing bound runs to
+ * the edge of the plot. `stroke` outlines it (inside its edge, so neighbouring regions do not overlap); `color: null` leaves it
+ * unfilled.
+ * `label: { corner: 'tl' | 'tr' | 'bl' | 'br', lines: [{ text, size = 11, weight, color }], dx = 10, dy = 18, lineHeight = 14 }`
+ * prints words in a corner of the region (a quadrant's name with a gloss under it). `dx` is the distance from the side; at the
+ * top `dy` is the distance from the top edge to the first baseline, at the bottom the distance from the bottom edge to the last.
+ */
 const region = {
   id: 'region',
   extent: (s) => (s.extent === false ? {} : { x: [s.x0, s.x1], y: [s.y0, s.y1] }),
@@ -304,11 +354,40 @@ const region = {
     ctx.save();
     ctx.globalAlpha = s.opacity ?? 1;
     ctx.fillStyle = env.color(s.color ?? 'muted');
-    ctx.fillRect(box.x, box.y, box.w, box.h);
+    if (s.color !== null) ctx.fillRect(box.x, box.y, box.w, box.h);
+    if (s.stroke) {
+      const lw = s.strokeWidth ?? 1;
+      ctx.strokeStyle = env.color(s.stroke);
+      ctx.lineWidth = lw;
+      ctx.setLineDash(s.strokeDash ?? []);
+      ctx.strokeRect(box.x + lw / 2, box.y + lw / 2, Math.max(0, box.w - lw), Math.max(0, box.h - lw));
+    }
+    if (s.label) cornerLabel(env, box, s.label);
     ctx.restore();
     return { kind: 'rect', ...box };
   },
 };
+
+/** The words of a region's `label` (see `region`). */
+function cornerLabel(env, box, label) {
+  const { ctx } = env;
+  const lines = label.lines ?? [];
+  const dx = label.dx ?? 10;
+  const dy = label.dy ?? 18;
+  const lh = label.lineHeight ?? 14;
+  const corner = label.corner ?? 'tl';
+  const right = corner[1] === 'r';
+  const bottom = corner[0] === 'b';
+  ctx.textAlign = right ? 'right' : 'left';
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([]);
+  lines.forEach((l, i) => {
+    ctx.font = env.font(l.size ?? 11, l.weight);
+    ctx.fillStyle = env.color(l.color ?? 'text');
+    const y = bottom ? box.y + box.h - dy - (lines.length - 1 - i) * lh : box.y + dy + i * lh;
+    ctx.fillText(String(l.text), right ? box.x + box.w - dx : box.x + dx, y);
+  });
+}
 
 /**
  * cell: { x, y, color, opacity, inset = 1, radius, label: { text, color, size, weight } }
@@ -382,8 +461,9 @@ const text = {
 };
 
 /**
- * arrow: { from: { x, y }, to: { x, y }, size = 6, color, width, opacity, stem = true } — a head at `to`, pointing away from
- * `from`, with a line between them. Put it on the end of a line mark to show where it is heading.
+ * arrow: { from: { x, y }, to: { x, y }, size = 6, headLength, headWidth, color, width, opacity, stem = true } — a head at
+ * `to`, pointing away from `from`, with a line between them. Put it on the end of a line mark to show where it is heading.
+ * `size` makes a head of a fixed shape; `headLength` (tip to base) and `headWidth` (the base) set it exactly.
  */
 const arrow = {
   id: 'arrow',
@@ -410,8 +490,17 @@ const arrow = {
     }
     ctx.beginPath();
     ctx.moveTo(b.x, b.y);
-    ctx.lineTo(b.x - Math.cos(ang - 0.45) * size, b.y - Math.sin(ang - 0.45) * size);
-    ctx.lineTo(b.x - Math.cos(ang + 0.45) * size, b.y - Math.sin(ang + 0.45) * size);
+    if (s.headLength !== undefined || s.headWidth !== undefined) {
+      const len = s.headLength ?? size;
+      const half = (s.headWidth ?? size * 0.9) / 2;
+      const bx = b.x - Math.cos(ang) * len;
+      const by = b.y - Math.sin(ang) * len;
+      ctx.lineTo(bx - Math.sin(ang) * half, by + Math.cos(ang) * half);
+      ctx.lineTo(bx + Math.sin(ang) * half, by - Math.cos(ang) * half);
+    } else {
+      ctx.lineTo(b.x - Math.cos(ang - 0.45) * size, b.y - Math.sin(ang - 0.45) * size);
+      ctx.lineTo(b.x - Math.cos(ang + 0.45) * size, b.y - Math.sin(ang + 0.45) * size);
+    }
     ctx.closePath();
     ctx.fill();
     ctx.restore();
@@ -419,6 +508,56 @@ const arrow = {
   },
 };
 
-for (const def of [line, area, bar, dot, rule, region, cell, text, arrow]) markTypes.register(def);
+/** Points along the curve of a `link`, for pointing at it. Pure. */
+export function linkPoints(a, b, direction = 'h', steps = 24) {
+  const mid = direction === 'v' ? (a.y + b.y) / 2 : (a.x + b.x) / 2;
+  const c1 = direction === 'v' ? { x: a.x, y: mid } : { x: mid, y: a.y };
+  const c2 = direction === 'v' ? { x: b.x, y: mid } : { x: mid, y: b.y };
+  const out = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const u = 1 - t;
+    out.push({
+      x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x,
+      y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y,
+    });
+  }
+  return out;
+}
+
+/**
+ * link: { from: { x, y }, to: { x, y }, direction: 'h' | 'v', width = 1.5, color, opacity, cap = 'round', hit = width }
+ * A smooth S-shaped ribbon between two nodes (a flow diagram): it leaves `from` and arrives at `to` along the x axis ('h',
+ * default) or the y axis ('v'), with its two control points halfway. `width` is its thickness in px.
+ */
+const link = {
+  id: 'link',
+  extent: (s) => ({ x: [s.from?.x, s.to?.x], y: [s.from?.y, s.to?.y] }),
+  draw(env, s) {
+    const { ctx } = env;
+    const a = { x: env.px(s.from.x), y: env.py(s.from.y) };
+    const b = { x: env.px(s.to.x), y: env.py(s.to.y) };
+    if (![a.x, a.y, b.x, b.y].every(finite)) return;
+    const width = s.width ?? 1.5;
+    const vertical = s.direction === 'v';
+    const mid = vertical ? (a.y + b.y) / 2 : (a.x + b.x) / 2;
+    ctx.save();
+    ctx.globalAlpha = s.opacity ?? 1;
+    ctx.strokeStyle = env.color(s.color ?? 'series');
+    ctx.lineWidth = width;
+    ctx.lineCap = s.cap ?? 'round';
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    if (vertical) ctx.bezierCurveTo(a.x, mid, b.x, mid, b.x, b.y);
+    else ctx.bezierCurveTo(mid, a.y, mid, b.y, b.x, b.y);
+    ctx.stroke();
+    ctx.restore();
+    const run = linkPoints(a, b, s.direction);
+    const tol = Math.max(width, s.hit ?? width) / 2;
+    return { kind: 'path', runs: [run], width, tol, ...bounds(run, tol) };
+  },
+};
+
+for (const def of [line, area, bar, dot, rule, region, cell, text, arrow, link]) markTypes.register(def);
 
 export { crisp, runsOf };
