@@ -6,7 +6,7 @@
  * It hits the chart's public API in random order with extreme values, renders after every step, and checks that
  *   - no exception or promise rejection occurred
  *   - position, zoom and value ranges are finite and consistent
- *   - no NaN / undefined shows up in the legend or the axis labels
+ *   - no NaN / undefined shows up in the legend, the axis labels or the trade marker tooltip
  *
  * Auto-saving is paused while it runs, so saved settings are left untouched.
  * The chart is left in a scrambled state; reload the page when done.
@@ -193,6 +193,34 @@ export async function run({ steps = 300, seed = 1, log = false } = {}) {
       else chart.toCanvas();
       return `look ${kind}`;
     },
+    trades() {
+      const tm = chart.trades;
+      const d = chart.data;
+      const n = d.length;
+      const time = () => (n ? d.time[Math.floor(rand() * n)] : 1_700_000_000_000) + pick([0, 0, 1, 30_000, -1e10, 1e10]);
+      const price = () => (n ? d.close[Math.floor(rand() * n)] : 100) * pick([1, 1, 1, 1.02, 0.4, 5, 0, -1]);
+      const entry = () => {
+        const kind = Math.floor(rand() * 6);
+        if (kind === 0) return pick([null, 7, {}, { time: 'x', price: 1 }, { side: 'long', entry: {} }, { time: NaN, price: NaN }]);
+        if (kind <= 2) return { side: pick(['long', 'short']), qty: pick([undefined, 0, 1, 2.5]), entry: { time: time(), price: price() }, exit: rand() < 0.7 ? { time: time(), price: price() } : undefined };
+        return { time: time(), price: price(), side: pick(['buy', 'sell', 'in', 'out', undefined]), qty: pick([undefined, 10, 0.001]), label: pick([undefined, '', 'TP', 'a long label that will not fit']), note: pick([undefined, 'note']) };
+      };
+      const kind = Math.floor(rand() * 8);
+      if (kind <= 1) tm.set(Array.from({ length: pick([0, 1, 3, 40, 3000]) }, entry));
+      else if (kind === 2) tm.add(entry());
+      else if (kind === 3 && tm.items.length) tm.remove(pick(tm.items));
+      else if (kind === 4) tm.visible = !tm.visible;
+      else if (kind === 5) tm.setOptions({ labels: rand() < 0.7, connectors: rand() < 0.7, openLine: rand() < 0.7, autoscale: rand() < 0.7 });
+      else if (kind === 6 && tm.items.length) tm.reveal(pick(tm.items), rand() < 0.5);
+      else if (rand() < 0.5) chart.addPriceLine({ price: price(), title: pick(['', 'Avg cost']), color: pick([null, 2, 'up', '#336699']), autoscale: rand() < 0.3 });
+      else chart.removePriceLine(rand() < 0.5 ? pick(chart.priceLines) ?? null : null);
+      // point somewhere, preferably at a marker, and click
+      chart.renderNow();
+      tm.pointer(between(0, chart.plotWidth), between(0, chart.panes[0].rect.h));
+      if (tm.hover) tm.click();
+      tm.position();
+      return `trades ${kind} (${tm.count})`;
+    },
     roundTrip() {
       const saved = JSON.parse(JSON.stringify(chart.serialize()));
       chart.restore(saved);
@@ -204,7 +232,7 @@ export async function run({ steps = 300, seed = 1, log = false } = {}) {
     },
   };
   const names = Object.keys(ops);
-  const weights = { timeframe: 2, view: 6, scale: 3, live: 4, draw: 3, crosshair: 2, addIndicator: 3, removeIndicator: 1, tweakIndicator: 3, type: 2, tinyData: 1, flatData: 0.5, look: 1.5, roundTrip: 0.5 };
+  const weights = { timeframe: 2, view: 6, scale: 3, live: 4, draw: 3, crosshair: 2, trades: 4, addIndicator: 3, removeIndicator: 1, tweakIndicator: 3, type: 2, tinyData: 1, flatData: 0.5, look: 1.5, roundTrip: 0.5 };
   const total = names.reduce((s, n) => s + (weights[n] ?? 1), 0);
   const choose = () => {
     let r = rand() * total;
@@ -229,6 +257,8 @@ export async function run({ steps = 300, seed = 1, log = false } = {}) {
       if (!(pane.rect.h > 0)) bad(`pane ${pane.id} height ${pane.rect.h}`);
       for (const t of pane.ticks) if (/NaN|undefined|Infinity/.test(t.label)) bad(`tick label "${t.label}"`);
     }
+    const tip = chart.trades.describe();
+    if (tip && /NaN|undefined|Infinity|\[object/.test(JSON.stringify(tip))) bad(`bad text in the trade tooltip: ${JSON.stringify(tip)}`);
     const legend = chart.layer.textContent;
     if (/NaN|undefined|Infinity|\[object/.test(legend)) bad(`bad text in the legend: ${legend.match(/.{0,20}(NaN|undefined|Infinity|\[object).{0,20}/)[0]}`);
   };

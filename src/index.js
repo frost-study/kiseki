@@ -6,6 +6,9 @@
  *   indicators.register(def)            indicators
  *   drawingTools.register(def)          drawing tools
  * Built-ins are registered through the same API (the imports below).
+ *
+ * Host data that is not a series goes through the chart itself: chart.trades (entries and exits at their
+ * exact time and price) and chart.addPriceLine() (levels such as an average cost).
  */
 import './series/builtins.js';
 import './indicators/builtins.js';
@@ -27,6 +30,8 @@ export { Indicator } from './indicators/Indicator.js';
 export * as math from './indicators/math.js';
 export { computeHeatmap, computeVolumeProfile } from './indicators/volume.js';
 export { distToSegment } from './drawings/tools.js';
+export { TradeMarkers, barIndexAt, groupFills, normalizeTrades, positionOf, tradeResult } from './trades/TradeMarkers.js';
+export { sampleTrades } from './data/sample-trades.js';
 export { TIMEFRAMES, timeframeById, bucketStart, resample, aggregateTicks, Aggregator } from './data/timeframes.js';
 export { decodeText, parseCsv } from './data/csv.js';
 export { DemoFeed, DEMO_SYMBOLS } from './data/feed.js';

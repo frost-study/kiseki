@@ -37,7 +37,7 @@ Load one script and write a tag. The gallery page (`widgets.html`) lets you chan
 
 | Tag | What it shows | Main attributes |
 |---|---|---|
-| `kiseki-advanced-chart` | The full chart: timeframes, chart types, indicators, drawing tools | `symbol` `timeframe` `type` `indicators` `hide` (`mast` `strip` `dock` `brand`) `symbol-change` `persist` |
+| `kiseki-advanced-chart` | The full chart: timeframes, chart types, indicators, drawing tools | `symbol` `timeframe` `type` `indicators` `hide` (`mast` `strip` `dock` `brand`) `symbol-change` `persist` `sample-trades` |
 | `kiseki-symbol-overview` | Price, change over a period, a chart, and the period high / low / spread / volume. Several symbols become tabs | `symbols` `range` `type` |
 | `kiseki-mini-chart` | A card with the price and a small chart, plus a bar showing where the price sits in the period range | `symbol` `range` |
 | `kiseki-ticker-tape` | A scrolling strip of prices and daily changes with tiny sparklines | `symbols` `speed` `mode="static"` `target` |
@@ -67,6 +67,8 @@ To load the widgets from another origin, serve `embed.js` and `src/` with CORS e
   volume heatmap, RSI, MACD, Stochastic, ATR, OBV
 - **9 drawing tools** — trend line, ray, extended line, horizontal / vertical line, rectangle, parallel channel,
   Fibonacci retracement, measure
+- **Trade markers** — entries and exits at their exact time and price, with the result of each round trip, plus price lines
+  for levels such as an average cost
 - Multiple panes (drag the borders to resize), log and percent scales, two themes (Paper and Ink), three candle color schemes
 - Live updates, CSV import by drag and drop (quoted cells, thousands separators and Shift_JIS files are handled), image export,
   automatic saving of settings and drawings
@@ -122,7 +124,50 @@ Display options for small, embedded views: `legend` `priceAxis` `timeAxis` `grid
 `rightOffset` `series`. `chart.fitTimeRange(from)` keeps the span from `from` to the latest bar fitted to the full width.
 
 Main API: `setData` `update` `append` `setType` `addIndicator` `removeIndicator` `updateIndicator` `setTheme` `setScaleMode`
-`showLastBars` `setVisibleTimeRange` `fitContent` `scrollToRealtime` `toCanvas` `serialize` `restore` `on(event, fn)`
+`showLastBars` `setVisibleTimeRange` `scrollToTime` `fitContent` `scrollToRealtime` `trades` `addPriceLine` `removePriceLine`
+`toCanvas` `serialize` `restore` `on(event, fn)`
+
+### Trade markers and price lines
+
+![Trade markers](docs/trades.jpg)
+
+`chart.trades` shows where a position was entered and left ("in" and "out"), at the exact time and price.
+A working page is in [examples/trades.html](examples/trades.html); the demo has synthetic ones under Settings → Sample trades
+(or `?trades=1`).
+
+```js
+chart.trades.set([
+  // One fill: a time, a price and a side. `qty`, `label`, `note` and `color` are optional.
+  { time: 1764031020000, price: 3184, side: 'buy', qty: 100, label: 'Dip buy', note: 'Shown in the details' },
+  // A round trip: entry and exit are joined by a line in the color of the result, and the exit shows it (+2.65%).
+  { side: 'long', qty: 50, entry: { time: 1764050400000, price: 3210 }, exit: { time: 1764241200000, price: 3295 } },
+  // No exit yet: an open position, with a line running on at its entry price.
+  { side: 'short', qty: 50, entry: { time: 1764291600000, price: 3300 } },
+]);
+
+// A level of your own, such as the average cost of what is held (moving-average method).
+const { avgPrice } = chart.trades.position();
+chart.addPriceLine({ price: avgPrice, title: 'Avg cost', color: 'accent' });
+
+chart.on('trade:click', ({ items }) => chart.trades.reveal(items[0]));   // items are the objects you passed in
+```
+
+- **Exact in time.** A fill lands on the bar that contains its time, never between two bars, and times are kept as times:
+  the same list stays right on every timeframe, on tick bars, and while live bars arrive.
+- **Exact in price.** A ring and a tick mark the price on the bar itself. The arrow (up from below for a buy, down from above
+  for a sell) stays outside the candle so it hides nothing, but never strays far from its price.
+  Visible fills are kept inside the price range.
+- **Readable when crowded.** Zoomed out, fills that would overlap share one arrow (×n) while their marks stay in place,
+  and labels give way to newer ones instead of piling up. The cost per frame depends on the screen, not on the number of fills.
+- **Details on hover.** Pointing at a marker shows the side, price, quantity, time, result and holding period, draws the exact
+  price across the pane and puts it on the price axis. A tap does the same on touch screens.
+  `trade:hover` and `trade:click` let the host react.
+
+Also: `add(entry)` `remove(idOrEntry)` `clear()` `visible` `reveal(idOrEntry)` `position()` and
+`setOptions({ labels, connectors, openLine, autoscale, colors: { buy, sell, profit, loss }, formatQty })`.
+Colors follow the candle scheme unless set. `side` also accepts `'in'` / `'out'`.
+`addPriceLine({ price, title, color, dash, width, axisLabel, autoscale })` returns the line for
+`updatePriceLine` / `removePriceLine`.
 
 ## Extending
 
@@ -242,20 +287,22 @@ src/
   series/      chart types
   indicators/  indicator runtime, math helpers, built-in definitions
   drawings/    drawing tools
+  trades/      trade markers (entries and exits at their exact time and price)
   data/        timeframe aggregation, synthetic data, CSV
   widgets/     embeddable widgets (advanced chart, symbol overview, mini chart, ticker tape)
   ui/          entry points of the demo page and the widget gallery
 embed.js       entry point for embedding (loading it registers the <kiseki-…> tags)
 embed.html     page for iframe embedding
-examples/      plugin examples and an example host page
+examples/      plugin examples, an example host page, and a trade marker example
 test/          unit tests
 tools/         dev server and the in-browser randomized stress test
 ```
 
 ## Testing
 
-- `npm test` runs the unit tests. Besides the LOD index, scales, aggregation and CSV parsing, they check for every indicator
-  that bar-by-bar incremental results equal a full recalculation, and that values match independently written naive implementations.
+- `npm test` runs the unit tests. Besides the LOD index, scales, aggregation, CSV parsing and trade marker placement, they
+  check for every indicator that bar-by-bar incremental results equal a full recalculation, and that values match
+  independently written naive implementations.
 - **Randomized stress test** — with the demo page open, run
   `(await import('/tools/fuzz.browser.js')).run({ steps: 500, seed: 1 })` in the console. It calls the public API in random order
   with extreme values and looks for exceptions and inconsistent state. Auto-saving is paused while it runs; reload afterwards.
@@ -269,6 +316,7 @@ tools/         dev server and the in-browser randomized stress test
 | Drag the price or time axis | Rescale (double-click to reset) |
 | ← → / ↑ ↓ / Home / End | Pan / zoom / oldest / latest |
 | Esc / Delete | Cancel drawing / remove the selected drawing |
+| Point at / tap a trade marker | Exact price, time and result |
 
 ## License
 

@@ -1,5 +1,6 @@
 import { DrawingManager } from '../drawings/DrawingManager.js';
 import { Indicator } from '../indicators/Indicator.js';
+import { TradeMarkers } from '../trades/TradeMarkers.js';
 import { BarData } from './BarData.js';
 import { EventEmitter } from './EventEmitter.js';
 import { Interaction } from './Interaction.js';
@@ -10,12 +11,13 @@ import { TimeScale } from './TimeScale.js';
 import { formatDateTime } from './format.js';
 import { t } from './i18n.js';
 import { applyThemeVars, ensureStyles } from './styles.js';
-import { contrastText, resolveTheme, withAlpha } from './theme.js';
+import { contrastText, resolveColor, resolveTheme, withAlpha } from './theme.js';
 
 const OVERLAY = 1;
 const BASE = 2;
 const LAYOUT = 4;
 const SUB_PANE_WEIGHT = 0.3;
+let lineUid = 0;
 
 /**
  * The chart.
@@ -25,8 +27,13 @@ const SUB_PANE_WEIGHT = 0.3;
  *   overlay … crosshair and drawings. Redrawn on every mouse move (cheap)
  * Text such as the legend is rendered as DOM (layer).
  *
+ * Besides the series and indicators, the main pane can show what the host knows about:
+ *   chart.trades          where a position was entered and left, at the exact time and price (see TradeMarkers)
+ *   chart.addPriceLine()  horizontal lines such as an average cost, a target or a stop
+ *
  * Events: 'crosshair' 'range' 'data' 'indicators' 'type' 'tool' 'drawings'
  *           'drawing:select' 'indicator:settings' 'theme' 'frame'
+ *           'trades' 'trade:hover' 'trade:click'
  */
 export class Chart extends EventEmitter {
   /**
@@ -114,6 +121,9 @@ export class Chart extends EventEmitter {
     if (this.options.rightOffset !== undefined) this.timeScale.rightOffset = this.options.rightOffset;
 
     this.drawings = new DrawingManager(this);
+    /** @type {{id:string, price:number, title:string, color:string|number|null, dash:number[]|null, width:number, axisLabel:boolean, autoscale:boolean}[]} */
+    this.priceLines = [];
+    this.trades = new TradeMarkers(this);
     this.legend = new Legend(this);
     this.interaction = new Interaction(this);
     this.legend.rebuild();
@@ -173,6 +183,7 @@ export class Chart extends EventEmitter {
     this.#anim = null;
     ts.setData(data, this.utcOffset);
     for (const pane of this.panes) for (const item of pane.items) item.setData(data);
+    this.trades.dataChanged();
     this.panes[0].scale.auto = true;
     ts.maxSpacing = 80;
     ts.barSpacing = 8;
@@ -418,6 +429,18 @@ export class Chart extends EventEmitter {
     this.animateView({ rightIndex: this.timeScale.realtimeIndex });
   }
 
+  /** Bring a time to the middle of the view, keeping the zoom. */
+  scrollToTime(time, animate = true) {
+    const ts = this.timeScale;
+    const view = { rightIndex: ts.timeToIndex(time) + ts.width / ts.barSpacing / 2 - 0.5 };
+    if (animate) this.animateView(view);
+    else {
+      this.#fit = null;
+      Object.assign(ts, view);
+      this.invalidate();
+    }
+  }
+
   /** Animate the position and zoom smoothly. */
   animateView(target, duration = 280) {
     const ts = this.timeScale;
@@ -442,6 +465,85 @@ export class Chart extends EventEmitter {
     this.options.series = { ...this.options.series, ...options };
     Object.assign(this.main.options, options);
     this.invalidate();
+  }
+
+  /**
+   * Add a horizontal line at a price on the main pane (an average cost, a target, a stop, …).
+   * @param {object} options
+   * @param {number} options.price
+   * @param {string} [options.title] short text shown above the line at the right edge
+   * @param {string|number} [options.color] a CSS color, a palette index or a role name ('up', 'down', 'accent', …)
+   * @param {number[]|null} [options.dash=[5, 4]] dash pattern; null for a solid line
+   * @param {number} [options.width=1]
+   * @param {boolean} [options.axisLabel=true] show the price on the axis
+   * @param {boolean} [options.autoscale=false] keep the line inside the price range
+   * @returns {object} the line; pass it to updatePriceLine() / removePriceLine()
+   */
+  addPriceLine(options) {
+    const line = { id: `p${++lineUid}`, price: NaN, title: '', color: null, dash: [5, 4], width: 1, axisLabel: true, autoscale: false, ...options };
+    this.priceLines.push(line);
+    this.invalidate();
+    return line;
+  }
+
+  updatePriceLine(line, options) {
+    const target = this.priceLines.find((l) => l === line || l.id === line);
+    if (!target) return;
+    Object.assign(target, options);
+    this.invalidate();
+  }
+
+  /** Remove a price line (the object returned by addPriceLine, or its id). Without an argument, remove all of them. */
+  removePriceLine(line = null) {
+    this.priceLines = line === null ? [] : this.priceLines.filter((l) => l !== line && l.id !== line);
+    this.invalidate();
+  }
+
+  #lineColor(line) {
+    return resolveColor(this.theme, line.color ?? this.theme.annotation);
+  }
+
+  /** Values the main pane's scale has to show besides its series: visible trade markers and the price lines that ask for it. */
+  #extraRange(ra, rb) {
+    let range = this.trades.range(ra, rb);
+    for (const line of this.priceLines) {
+      if (!line.autoscale || !Number.isFinite(line.price)) continue;
+      range ??= { min: line.price, max: line.price };
+      range.min = Math.min(range.min, line.price);
+      range.max = Math.max(range.max, line.price);
+    }
+    return range;
+  }
+
+  #drawPriceLines(ctx, plotW, h) {
+    const scale = this.panes[0].scale;
+    ctx.font = `11px ${this.theme.font}`;
+    ctx.textAlign = 'right';
+    ctx.lineJoin = 'round';
+    for (const line of this.priceLines) {
+      const y = scale.y(line.price);
+      if (!(y >= -1 && y <= h + 1)) continue;
+      const color = this.#lineColor(line);
+      const Y = Math.round(y) + 0.5;
+      ctx.beginPath();
+      ctx.moveTo(0, Y);
+      ctx.lineTo(plotW, Y);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = line.width ?? 1;
+      ctx.setLineDash(line.dash ?? []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (!line.title) continue;
+      // The title sits above the line (below it near the top edge), outlined in the background color so it stays readable over the series.
+      const above = Y > 18;
+      ctx.textBaseline = above ? 'bottom' : 'top';
+      const ty = above ? Y - 3 : Y + 3;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = this.theme.bg;
+      ctx.strokeText(line.title, plotW - 8, ty);
+      ctx.fillStyle = color;
+      ctx.fillText(line.title, plotW - 8, ty);
+    }
   }
 
   #stepAnimation(now) {
@@ -632,7 +734,7 @@ export class Chart extends EventEmitter {
     // Decide value ranges and ticks, then size the price axis from the label widths.
     let labelW = 0;
     for (const pane of this.panes) {
-      pane.autoscale(a, b, ra, rb);
+      pane.autoscale(a, b, ra, rb, pane === this.panes[0] ? this.#extraRange(ra, rb) : null);
       pane.ticks = pane.scale.ticks();
       pane.tags = this.#collectTags(pane);
       for (const t of pane.ticks) labelW = Math.max(labelW, ctx.measureText(t.label).width);
@@ -704,6 +806,10 @@ export class Chart extends EventEmitter {
         ctx.stroke();
         ctx.setLineDash([]);
       }
+      if (pane === this.panes[0]) {
+        this.#drawPriceLines(ctx, plotW, h);
+        this.trades.draw(ctx);
+      }
       ctx.restore();
 
       // Price axis
@@ -718,7 +824,8 @@ export class Chart extends EventEmitter {
         // Tick marks
         ctx.fillStyle = theme.axisLine;
         for (const t of pane.ticks) ctx.fillRect(plotW, py + Math.round(t.y), 4, 1);
-        if (this.options.priceLine !== false) for (const tag of pane.tags) this.#drawTag(ctx, plotW, py + tag.y, tag.label, tag.color);
+        ctx.font = `11px ${theme.mono}`;
+        for (const tag of pane.tags) if (tag.fixed || this.options.priceLine !== false) this.#drawTag(ctx, plotW, py + tag.y, tag.label, tag.color);
       }
 
       // Pane separator
@@ -764,6 +871,11 @@ export class Chart extends EventEmitter {
         tags.push({ y, rawY: y, label: pane.scale.label(lv.value), color: lv.color, line: lv.line });
       }
     }
+    for (const line of main ? this.priceLines : []) {
+      const y = pane.scale.y(line.price);
+      if (line.axisLabel === false || !(y >= 0 && y <= h)) continue;
+      tags.push({ y, rawY: y, label: pane.scale.label(line.price), color: this.#lineColor(line), line: false, fixed: true });
+    }
     tags.sort((p, q) => p.y - q.y);
     for (let i = 1; i < tags.length; i++) {
       if (tags[i].y - tags[i - 1].y < 18) tags[i].y = tags[i - 1].y + 18;
@@ -783,35 +895,56 @@ export class Chart extends EventEmitter {
     ctx.fillText(label, x + 9, Math.round(y) + 0.5);
   }
 
-  #drawOverlay(crosshair = true) {
+  /** @param {boolean} live false leaves out what follows the pointer (crosshair, marker details), for image export */
+  #drawOverlay(live = true) {
     const { theme, dpr } = this;
     const ctx = this.#over.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, this.width, this.height);
     const plotW = this.plotWidth;
     const main = this.panes[0];
-
-    if (this.data.length) {
+    const inMain = (draw) => {
       ctx.save();
       ctx.translate(0, main.rect.y);
       ctx.beginPath();
       ctx.rect(0, 0, plotW, main.rect.h);
       ctx.clip();
-      this.drawings.draw(ctx);
+      draw();
       ctx.restore();
-    }
+    };
+    if (!this.data.length) return;
 
+    inMain(() => {
+      this.drawings.draw(ctx);
+      if (live) this.trades.drawHover(ctx);
+    });
+    if (!live) return;
+    // On a trade marker the horizontal line and the axis label show the marker's exact price instead of the pointer's.
+    const marker = this.trades.hoverTag();
+    this.#drawCrosshair(ctx, !marker);
+    if (marker && this.options.priceAxis !== false && marker.y >= 0 && marker.y <= main.rect.h) {
+      ctx.font = `11px ${theme.mono}`;
+      this.#drawTag(ctx, plotW, main.rect.y + marker.y, marker.label, marker.color);
+    }
+    if (marker) inMain(() => this.trades.drawTooltip(ctx));
+  }
+
+  #drawCrosshair(ctx, horizontal) {
+    const theme = this.theme;
+    const plotW = this.plotWidth;
+    const main = this.panes[0];
     const c = this.crosshair;
     const mode = this.options.crosshair ?? true;
-    if (!crosshair || !mode || !c.active || !c.pane || !this.data.length) return;
+    if (!mode || !c.active || !c.pane) return;
     const ts = this.timeScale;
     const X = Math.round(ts.x(c.index)) + 0.5;
     const bottom = this.height - this.timeAxisHeight;
     const Y = Math.round(c.y) + 0.5;
+    horizontal &&= mode === true;
     ctx.beginPath();
     ctx.moveTo(X, 0);
     ctx.lineTo(X, bottom);
-    if (mode === true && c.y >= c.pane.rect.y && c.y <= c.pane.rect.y + c.pane.rect.h) {
+    if (horizontal && c.y >= c.pane.rect.y && c.y <= c.pane.rect.y + c.pane.rect.h) {
       ctx.moveTo(0, Y);
       ctx.lineTo(plotW, Y);
     }
@@ -832,7 +965,7 @@ export class Chart extends EventEmitter {
     }
 
     ctx.font = `11px ${theme.mono}`;
-    if (mode === true && this.options.priceAxis !== false) {
+    if (horizontal && this.options.priceAxis !== false) {
       const value = c.pane.scale.value(c.y - c.pane.rect.y);
       this.#drawTag(ctx, plotW, c.y, c.pane.scale.label(value), theme.tagBg, theme.tagText);
     }

@@ -8,6 +8,7 @@
  *   Drag a pane border       resize panes
  *   ← → / ↑ ↓ / Home / End   pan / zoom / oldest / latest
  *   Esc / Delete             cancel drawing / remove the selected drawing
+ *   Point at a trade marker  show its details; a click or tap emits 'trade:click'
  */
 export class Interaction {
   constructor(chart) {
@@ -24,7 +25,9 @@ export class Interaction {
     on('pointerup', (e) => this.#up(e));
     on('pointercancel', (e) => this.#up(e));
     on('pointerleave', () => {
-      if (!this.#mode) this.chart.clearCrosshair();
+      if (this.#mode) return;
+      this.chart.clearCrosshair();
+      this.chart.trades.pointer(null);
     });
     on('wheel', (e) => this.#wheel(e), { passive: false });
     on('dblclick', (e) => this.#dblclick(e));
@@ -68,7 +71,7 @@ export class Interaction {
     else if (z.zone === 'time') c = 'ew-resize';
     else if (z.zone === 'sep') c = 'row-resize';
     else if (z.zone === 'corner') c = 'default';
-    else if (!d.tool && d.hover) c = 'pointer';
+    else if (!d.tool && (d.hover || this.chart.trades.hover)) c = 'pointer';
     this.chart.root.style.cursor = c;
   }
 
@@ -80,7 +83,10 @@ export class Interaction {
       // Non-interactive view: just read the value at the pressed position (dragging is left to the page).
       const p = this.#pos(e);
       const z = this.#zone(p.x, p.y);
-      if (z.zone === 'plot') chart.setCrosshair(p.x, p.y, z.pane);
+      if (z.zone === 'plot') {
+        chart.setCrosshair(p.x, p.y, z.pane);
+        this.#tapTrade(z.pane, p.x, p.y);
+      }
       return;
     }
     chart.releaseFit();
@@ -144,6 +150,7 @@ export class Interaction {
         return;
       }
       case 'pan': {
+        if (Math.hypot(x - s.sx, y - s.sy) > 4) chart.trades.pointer(null);
         ts.scrollPx(x - s.x);
         if (!s.pane.scale.auto) s.pane.scale.pan(y - s.y);
         s.x = x;
@@ -177,10 +184,15 @@ export class Interaction {
         if (e.target.closest('.kc-actions, .kc-live')) return;
         const z = this.#zone(x, y);
         if (z.zone === 'plot') {
-          if (z.pane === main || chart.drawings.busy) chart.drawings.move(x, y - main.rect.y);
+          const d = chart.drawings;
+          if (z.pane === main || d.busy) d.move(x, y - main.rect.y);
+          // Drawings come first: a marker under a drawing or a drawing tool is not hovered.
+          if (z.pane === main && !d.tool && !d.hover && !d.busy) chart.trades.pointer(x, y - main.rect.y);
+          else chart.trades.pointer(null);
           chart.setCrosshair(x, y, z.pane);
         } else {
           chart.clearCrosshair();
+          chart.trades.pointer(null);
         }
         this.#cursor(z);
       }
@@ -210,10 +222,20 @@ export class Interaction {
       chart.drawings.up(x, y - chart.panes[0].rect.y);
     } else if (mode === 'pan') {
       const moved = Math.hypot(x - s.sx, y - s.sy);
+      if (moved < 5 && e.type === 'pointerup') this.#tapTrade(s.pane, x, y);
       if (s.touch && moved < 6) chart.setCrosshair(x, y, s.pane);
       else this.#fling(s.samples, e.timeStamp);
     }
     this.#cursor(this.#zone(x, y));
+  }
+
+  /** A click or tap that did not move: if it is on a trade marker, show it (touch has no hover) and report the click. */
+  #tapTrade(pane, x, y) {
+    const chart = this.chart;
+    const main = chart.panes[0];
+    if (pane !== main) return;
+    chart.trades.pointer(x, y - main.rect.y);
+    chart.trades.click();
   }
 
   /** Glide at the release velocity and stop by friction. */

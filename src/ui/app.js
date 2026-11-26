@@ -1,6 +1,6 @@
 /**
  * Entry point of the demo page: it just places the advanced chart widget full-screen.
- * The initial state can be set in the URL: ?symbol=FABLE&tf=tick&lang=en&ticks=3000000
+ * The initial state can be set in the URL: ?symbol=FABLE&tf=tick&lang=en&ticks=3000000&trades=1
  */
 import { DemoFeed } from '../data/feed.js';
 import { createAdvancedChart, setFeed } from '../widgets/index.js';
@@ -15,5 +15,6 @@ window.kiseki = createAdvancedChart(document.getElementById('app'), {
   symbol: params.get('symbol') ?? undefined,
   timeframe: params.get('tf') ?? undefined,
   lang: params.get('lang') ?? undefined,
+  sampleTrades: params.get('trades') ?? undefined,
 });
 document.documentElement.lang = window.kiseki.state.lang;

@@ -16,6 +16,7 @@
  *   hide                           parts to hide: mast (header) / strip (controls) / dock (drawing tools) / brand
  *   symbol-change ('false' forbids switching symbols)
  *   persist                        localStorage key for saving settings (nothing is saved when omitted)
+ *   sample-trades ('true' shows synthetic trade markers, for demos; your own go through `api.chart.trades.set()`)
  *   feed                           data feed (only when created from JavaScript; the shared one by default)
  */
 import { Chart } from '../core/Chart.js';
@@ -24,6 +25,7 @@ import * as format from '../core/format.js';
 import { getLocale, t } from '../core/i18n.js';
 import { candleSchemes, themes } from '../core/theme.js';
 import { decodeText, parseCsv } from '../data/csv.js';
+import { sampleTrades } from '../data/sample-trades.js';
 import { TIMEFRAMES, timeframeById } from '../data/timeframes.js';
 import * as ui from './dom.js';
 import { ICON, h, menuItem, svg } from './dom.js';
@@ -55,6 +57,7 @@ export function createAdvancedChart(container, options = {}) {
     scheme: 'wa',
     live: true,
     speed: 20,
+    sampleTrades: false,
     layout: null,
     drawings: {},
     ...saved,
@@ -64,6 +67,7 @@ export function createAdvancedChart(container, options = {}) {
     if (options[option] !== undefined && options[option] !== null) state[key] = key === 'speed' ? Number(options[option]) || 20 : options[option];
   }
   if (options.live !== undefined) state.live = flag(options.live);
+  if (options.sampleTrades !== undefined) state.sampleTrades = flag(options.sampleTrades);
   // The UI language is page-wide. Without a storage key (plain embeds) keep whatever the page already uses;
   // otherwise follow the browser language on a first visit.
   const fallbackLang = !storeKey ? getLocale() : navigator.language?.startsWith('ja') ? 'ja' : 'en';
@@ -139,6 +143,21 @@ export function createAdvancedChart(container, options = {}) {
 
   const isRawTicks = () => timeframeById.get(state.tf).ticks === 1;
 
+  // Synthetic trade markers for the demo. Markers set by the host (api.chart.trades.set) are left alone.
+  let samplesShown = false;
+
+  function applySampleTrades() {
+    if (state.sampleTrades) chart.trades.set(sampleTrades(chart.data, { precision: chart.main.precision }));
+    else if (samplesShown) chart.trades.clear();
+    samplesShown = state.sampleTrades;
+  }
+
+  function setSampleTrades(on) {
+    state.sampleTrades = !!on;
+    applySampleTrades();
+    save();
+  }
+
   async function load({ keepView = false } = {}) {
     const token = ++loadToken;
     unsubscribe?.();
@@ -153,6 +172,7 @@ export function createAdvancedChart(container, options = {}) {
     chart.setType(isRawTicks() ? state.tickType : state.type);
     chart.setSymbol({ name: sym.id, description: t(sym.description), precision: sym.precision }, tf.label);
     chart.setData(data, { keepView });
+    applySampleTrades();
     if (state.live && !sym.static) {
       unsubscribe = feed.subscribe(sym.id, tf.id, (bar, isNew) => (isNew ? chart.append(bar) : chart.update(bar)), data);
     }
@@ -380,6 +400,8 @@ export function createAdvancedChart(container, options = {}) {
       menu.append(menuItem({ label: t(s.label), on: state.scheme === id, onclick: () => (close(), setTheme(state.theme, id)) }));
     }
     menu.append(
+      h('h6', null, t('Demo')),
+      menuItem({ label: t('Sample trades'), sub: t('Synthetic entries and exits'), on: state.sampleTrades, onclick: () => (close(), setSampleTrades(!state.sampleTrades)) }),
       h('hr'),
       menuItem({ label: t('Save as image'), icon: ICON.camera, onclick: () => (close(), screenshot()) }),
       menuItem({ label: t('Import CSV…'), icon: ICON.upload, onclick: () => (close(), pickCsv()) }),
@@ -532,6 +554,16 @@ export function createAdvancedChart(container, options = {}) {
           toast(t('{n} drawings removed', { n }));
         },
       }),
+      // Only when there is something to show or hide.
+      chart.trades.count
+        ? h('button', {
+            class: 'btn icon' + (chart.trades.visible ? ' on' : ''),
+            title: t('Trade markers (show / hide)'),
+            'aria-pressed': chart.trades.visible,
+            html: svg(ICON.trades),
+            onclick: () => (chart.trades.visible = !chart.trades.visible),
+          })
+        : null,
       h('div', { class: 'spacer' }),
       info,
     );
@@ -607,6 +639,7 @@ export function createAdvancedChart(container, options = {}) {
       [['Home', 'End'], t('Oldest / latest bar')],
       [['Esc'], t('Cancel drawing / deselect')],
       [['Delete'], t('Remove the selected drawing')],
+      [[t('Point at a trade marker')], t('Exact price, time and result of the trade')],
       [[t('Drop a CSV')], t('Import your own data (time, open, high, low, close, volume)')],
     ];
     openDialog(t('Controls guide'), {
@@ -655,6 +688,7 @@ export function createAdvancedChart(container, options = {}) {
     save();
   });
   chart.on('drawing:select', renderFloatbar);
+  chart.on('trades', renderTools);
   chart.on('indicators', save);
   chart.on('indicator:settings', indicatorSettings);
   chart.on('frame', () => {
@@ -680,6 +714,7 @@ export function createAdvancedChart(container, options = {}) {
     setTheme,
     setLanguage,
     setLive,
+    setSampleTrades,
     /** Apply changed attributes (options) without recreating the widget. */
     update(next) {
       if (next.symbol && next.symbol !== state.symbol) setSymbol(next.symbol);
@@ -688,6 +723,7 @@ export function createAdvancedChart(container, options = {}) {
       if ((next.theme && next.theme !== state.theme) || (next.scheme && next.scheme !== state.scheme)) setTheme(next.theme ?? state.theme, next.scheme ?? state.scheme);
       if (next.lang && next.lang !== state.lang) setLanguage(next.lang);
       if (next.live !== undefined && flag(next.live) !== state.live) setLive(flag(next.live));
+      if (next.sampleTrades !== undefined && flag(next.sampleTrades) !== state.sampleTrades) setSampleTrades(flag(next.sampleTrades));
     },
     /** Pause / resume auto-saving (so tests that scramble the chart do not overwrite saved settings). */
     pauseSaving(on = true) {

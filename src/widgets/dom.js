@@ -41,6 +41,7 @@ export const ICON = {
   candles: 'M8 3v3M8 16v5M5.5 6h5v10h-5zM16 5v4M16 15v4M13.5 9h5v6h-5z',
   area: 'M3 17l5-6 4 3 4-7 5 4v8H3zM3 17l5-6 4 3 4-7 5 4',
   copy: 'M9 9h10v11H9zM5 15V4h10',
+  trades: 'M7.5 4.5l4 6.5h-8zM16.5 19.5l-4-6.5h8zM3 14h7M14 10h7',
 };
 
 export function toast(mount, text) {

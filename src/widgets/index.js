@@ -26,7 +26,7 @@ const COMMON = ['theme', 'scheme', 'lang'];
 
 /** List of widgets (used e.g. by the page that generates embed code). */
 export const WIDGETS = [
-  { id: 'advanced-chart', tag: 'kiseki-advanced-chart', create: createAdvancedChart, attributes: ['symbol', 'timeframe', 'type', 'indicators', 'live', 'speed', 'hide', 'symbol-change', 'persist', ...COMMON] },
+  { id: 'advanced-chart', tag: 'kiseki-advanced-chart', create: createAdvancedChart, attributes: ['symbol', 'timeframe', 'type', 'indicators', 'live', 'speed', 'hide', 'symbol-change', 'persist', 'sample-trades', ...COMMON] },
   { id: 'symbol-overview', tag: 'kiseki-symbol-overview', create: createSymbolOverview, attributes: ['symbols', 'symbol', 'range', 'type', 'live', ...COMMON] },
   { id: 'mini-chart', tag: 'kiseki-mini-chart', create: createMiniChart, attributes: ['symbol', 'range', 'live', ...COMMON] },
   { id: 'ticker-tape', tag: 'kiseki-ticker-tape', create: createTickerTape, attributes: ['symbols', 'speed', 'mode', 'target', ...COMMON] },

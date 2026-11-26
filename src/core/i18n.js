@@ -135,6 +135,20 @@ const messages = {
     'Fibonacci retracement': 'フィボナッチ・リトレースメント',
     'Measure (price & time)': '計測(値幅・期間)',
 
+    // ── Trade markers ──
+    'Buy': '買い',
+    'Sell': '売り',
+    'entry': '新規',
+    'exit': '決済',
+    'Qty': '数量',
+    'Time': '日時',
+    'P&L': '損益',
+    'Unrealized': '含み損益',
+    'Held': '保有期間',
+    'Avg price': '平均価格',
+    'First': '最初',
+    'Last': '最後',
+
     // ── Data ──
     'imported data': '取り込みデータ',
     'synthetic data': '合成データ',
@@ -216,6 +230,13 @@ const messages = {
     'Drop a CSV here to import it': 'CSV をここに置くと読み込みます',
     'Imported {name} ({n} rows)': '{name} を読み込みました({n} 行)',
     'Could not import: {msg}': '読み込めませんでした: {msg}',
+
+    'Demo': 'デモ',
+    'Sample trades': 'サンプルの売買',
+    'Synthetic entries and exits': '合成した新規・決済の印',
+    'Trade markers (show / hide)': '売買マーカー(表示 / 非表示)',
+    'Point at a trade marker': '売買マーカーにカーソル',
+    'Exact price, time and result of the trade': '約定の正確な価格・日時と損益',
 
     // ── Widgets ──
     'Range high': '期間高値',

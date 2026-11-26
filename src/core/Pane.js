@@ -57,8 +57,9 @@ export class Pane {
    * Fit each scale's value range to the visible range.
    * @param {number} a,b   visible indices clamped to the data range
    * @param {number} ra,rb visible indices before clamping
+   * @param {{min:number, max:number} | null} [extra] more values the 'right' scale has to show (trade markers, price lines)
    */
-  autoscale(a, b, ra, rb) {
+  autoscale(a, b, ra, rb, extra = null) {
     for (const [id, scale] of this.scales) {
       const primary = this.items.find((it) => it.scaleId === id);
       if (!primary) continue;
@@ -80,6 +81,10 @@ export class Pane {
         if (!r) continue;
         if (r.min < mn) mn = r.min;
         if (r.max > mx) mx = r.max;
+      }
+      if (extra && id === 'right') {
+        if (extra.min < mn) mn = extra.min;
+        if (extra.max > mx) mx = extra.max;
       }
       if (mn <= mx) scale.fit(mn, mx);
       else scale.refresh();
