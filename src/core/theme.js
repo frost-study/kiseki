@@ -96,6 +96,7 @@ export function resolveTheme(theme, scheme = 'wa') {
  * Resolve a color spec to a CSS color.
  *   number → the theme's categorical color (palette[n])
  *   'up' / 'down' / 'accent' / 'muted' / 'text' / 'series' / 'heat' → the theme's role color
+ *   'faint' / 'grid' / 'axis' / 'bg' / 'surface' / 'border' → the theme's neutral colors (for figures: rules, axes, gaps)
  *   anything else → used as is
  */
 export function resolveColor(theme, c) {
@@ -108,6 +109,12 @@ export function resolveColor(theme, c) {
     case 'text': return theme.text;
     case 'series': return theme.series;
     case 'heat': return theme.heat;
+    case 'faint': return theme.textFaint;
+    case 'grid': return theme.grid;
+    case 'axis': return theme.axisLine;
+    case 'bg': return theme.bg;
+    case 'surface': return theme.surface;
+    case 'border': return theme.border;
     default: return c;
   }
 }

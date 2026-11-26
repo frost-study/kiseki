@@ -198,9 +198,62 @@ chart.on('marker:hover', (hit) => showHint(hit));              // null when the 
 - Hover and click are hit-tested within 14 px of a marker's centre; the chart draws no tooltip, the host decides what to show.
 - Also: `add(item)` `remove(idOrItem)` `clear()` `visible` `items` `count`.
 
+## Figures
+
+`Chart` draws bar-indexed time series. **Figures** are for everything else: a sparkline, a fan of bands over time, a bump
+chart, a bar chart on categories, a grid of cells. A figure owns one canvas inside a container, is drawn from `setData`,
+and tells the host where everything is, so the host can lay real DOM controls over it. A working page is in
+[examples/figures.html](examples/figures.html).
+
+```js
+import { CartesianFigure, createFigure } from './src/index.js';
+
+// A preset by name. A fixed width and height means no ResizeObserver, so a page can hold hundreds of them.
+const spark = createFigure(el, 'sparkline', { width: 88, height: 24, baseline: 'start', tone: 'direction' });
+spark.setData([101, 103, 102, 108]);
+
+// A plot composed from marks. A missing width or height follows the container (which then needs a size of its own).
+const fig = new CartesianFigure(el, {
+  margin: { top: 8 },
+  x: { scale: 'time', axis: { ticks: 5, format: (t) => new Date(t).toISOString().slice(0, 7) } },
+  y: { axis: { format: (v) => v.toFixed(1) }, grid: true, include: [0] },
+});
+fig.setData([
+  { type: 'area', points: [{ x: t0, y0: 1, y1: 3 }, { x: t1, y0: 2, y1: 5 }], color: 0, opacity: 0.2 },
+  { type: 'line', id: 'you', datum: row, points: [{ x: t0, y: 2 }, { x: t1, y: 4 }], color: 'series', width: 2 },
+  { type: 'text', at: 'end', y: 4, text: 'You', place: { group: 'ends', mode: 'spread', gap: 15 } },
+]);
+fig.on('layout', (marks) => placeControls(marks));       // after every layout
+fig.on('click', ({ mark }) => select(mark?.datum));       // pointer events are only listened to once a handler is added
+```
+
+- **Every figure** (`Figure`, an `EventEmitter`): `setData` `setOptions` `setTheme` `setActive(id)` `setSelected(id)` `markAt(x, y)`
+  `markById(id)` `toCanvas()` `destroy()`. Options `theme` / `scheme` (the same theme objects and color roles as `Chart`),
+  `width` / `height`, `hitSlop`, `emphasis`. Drawing is batched into one animation frame shared by all figures,
+  follows the device pixel ratio, and never animates. A figure never takes the wheel or a touch drag from the page.
+- **`marks`** is what was drawn that has an `id`, in CSS px relative to the canvas: `{ id, datum, kind, x, y, w, h }` plus
+  `cx cy r` for a `'circle'` and `runs` (polylines) and `tol` for a `'path'`. `x y w h` is always the bounding box.
+  `'layout'` is emitted after each layout; `'hover'` and `'click'` carry `{ mark, x, y }` (`mark` is `null` off a mark).
+  `setActive` draws a ring (a halo behind a line) for keyboard focus; `setSelected` the same for a selection.
+- **`CartesianFigure`**: x and y scales (`linear`, `time` in UNIX ms, `band`; either can be `reverse`d; the domain comes from
+  the marks unless given), optional axes and grid with host-formatted labels (`format(value)` or `formatTicks(values)`),
+  and margins that fit the labels and the end labels. Marks are drawn in the order given:
+  `line` (gaps, step, halo, dash) · `area` (between `y0` and `y1`) · `bar` (vertical or horizontal; give each segment its own
+  `from` / `to`, see `stackValues`, for stacked or diverging bars) · `dot` · `rule` · `region` · `cell` (band × band) ·
+  `text` (`at: 'end'` end labels; `place` keeps labels from overlapping) · `arrow`. Colors are CSS colors, palette indices
+  or role names (`'up'` `'down'` `'accent'` `'muted'` `'text'` `'series'` `'grid'` `'axis'` `'faint'` `'surface'` …).
+- **Presets** are registered in `figureTypes` (`'cartesian'`, `'sparkline'`) and created with `createFigure(el, id, options)`.
+  `'sparkline'`: a line on its own y scale, a dashed baseline at the first value (`baseline: 'start'`), at a number, or none
+  (`null`), and an end dot that follows the direction of the change (`tone: 'direction'`) or has the line's color.
+  Add your own the way `seriesTypes` works: extend `Figure` (implement `paint(ctx)`, call `this.expose(...)` for marks that can be
+  pointed at) and `figureTypes.register(Class)`; new marks go through `markTypes.register({ id, extent, draw })`.
+- **Pure helpers**, tested without a DOM: `linearScale` `timeScale` `bandScale` `makeScale` `timeTicks` (calendar ticks)
+  · `spreadLabels` `placeTickLabels` `placeBoxes` · `stackValues` · `hitTest`.
+- **Words.** Figures print no words of their own: tick labels, end labels and text marks all come from the host.
+
 ## Extending
 
-There are three registries. The built-ins are registered through the same API, so plugins are treated exactly like them, and the
+There are three registries for `Chart` (`figureTypes` and `markTypes` are described under [Figures](#figures)). The built-ins are registered through the same API, so plugins are treated exactly like them, and the
 UI lists the registries directly, so whatever you register shows up in the menus.
 Working examples of each are in [examples/plugins.js](examples/plugins.js).
 
@@ -324,6 +377,7 @@ src/
   drawings/    drawing tools
   trades/      trade markers (entries and exits at their exact time and price)
   markers/     markers on bars (pins, dividends, events)
+  figures/     charts that are not bar-indexed time series (sparkline, plots composed from marks)
   data/        timeframe aggregation, synthetic data, CSV
   widgets/     embeddable widgets (advanced chart, symbol overview, mini chart, ticker tape)
   ui/          entry points of the demo page and the widget gallery

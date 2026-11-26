@@ -36,3 +36,5 @@ export class Registry {
 export const seriesTypes = new Registry('series type');
 export const indicators = new Registry('indicator');
 export const drawingTools = new Registry('drawing tool');
+export const figureTypes = new Registry('figure type');
+export const markTypes = new Registry('mark type');

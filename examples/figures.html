@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kiseki Chart: figures</title>
+    <style>
+      body { margin: 0; background: #f5f2eb; color: #3a3732; font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+      main { max-width: 960px; margin: 0 auto; padding: 20px 16px 32px; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      h2 { font-size: 14px; margin: 24px 0 6px; }
+      p { margin: 0 0 12px; color: #77726a; }
+      .row { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+      .row span { display: inline-flex; align-items: center; gap: 8px; font: 12px ui-monospace, "SF Mono", Menlo, monospace; }
+      .box { height: 240px; border: 1px solid #d9d3c6; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #1c1b19; color: #d8d3c7; }
+        p { color: #958f84; }
+        .box { border-color: #383631; }
+      }
+      #log { min-height: 1.6em; font: 12px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Figures</h1>
+      <p>Charts that are not bar-indexed time series, drawn on one canvas each. All data here is synthetic.</p>
+
+      <h2>Sparklines</h2>
+      <p>Fixed size, so nothing is observed: a page can hold hundreds of them.</p>
+      <div class="row" id="sparks"></div>
+
+      <h2>A fan of bands over time, with end labels</h2>
+      <p>A <code>CartesianFigure</code> composed from marks: two areas, a dashed line, a strong line, a dot and spread end labels.</p>
+      <div class="box" id="fan"></div>
+
+      <h2>A bump chart you can point at</h2>
+      <p>Marks with an <code>id</code> are exposed in <code>figure.marks</code>; hover and click report them.</p>
+      <div class="box" id="bump"></div>
+      <div id="log">Point at a line, click to select it.</div>
+
+      <h2>Bars on a band scale</h2>
+      <div class="box" id="bars"></div>
+    </main>
+    <script type="module">
+      import { CartesianFigure, createFigure, stackValues } from '../src/index.js';
+
+      // deterministic pseudo-random numbers
+      let seed = 7;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+      const walk = (n, start = 100) => {
+        const out = [start];
+        for (let i = 1; i < n; i++) out.push(out[i - 1] + (rnd() - 0.48) * 4);
+        return out;
+      };
+      const theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+      // Sparklines
+      for (const baseline of ['start', 'start', 'start', 100, null]) {
+        const wrap = document.createElement('span');
+        document.getElementById('sparks').append(wrap);
+        const box = document.createElement('i');
+        wrap.append(box, String(baseline));
+        createFigure(box, 'sparkline', { width: 88, height: 24, theme, baseline }).setData(walk(30));
+      }
+
+      // Fan
+      const DAY = 86_400_000;
+      const t0 = Date.UTC(2025, 0, 1);
+      const days = Array.from({ length: 60 }, (_, i) => t0 + i * 7 * DAY);
+      const you = walk(60, 0).map((v) => (v - 100) * 20);
+      const mid = days.map((_, i) => i * 4);
+      const fan = new CartesianFigure(document.getElementById('fan'), {
+        theme,
+        margin: { top: 8 },
+        x: { scale: 'time', axis: { ticks: 6, format: (t) => new Date(t).toISOString().slice(0, 7) } },
+        y: { axis: { format: (v) => (v / 1000).toFixed(1) + 'k' }, grid: true, include: [0] },
+      });
+      fan.setData([
+        { type: 'area', points: days.map((x, i) => ({ x, y0: mid[i] - 400, y1: mid[i] + 400 })), color: 0, opacity: 0.16 },
+        { type: 'area', points: days.map((x, i) => ({ x, y0: mid[i] - 150, y1: mid[i] + 150 })), color: 0, opacity: 0.34 },
+        { type: 'rule', y: 0, color: 'axis' },
+        { type: 'line', points: days.map((x, i) => ({ x, y: mid[i] })), color: 0, width: 1.25, dash: [4, 3] },
+        { type: 'line', points: days.map((x, i) => ({ x, y: you[i] })), color: 'series', width: 2.25 },
+        { type: 'dot', x: days.at(-1), y: you.at(-1), r: 3, color: 'series' },
+        { type: 'text', at: 'end', y: you.at(-1), text: 'You', weight: 600, baseline: 'middle', color: 'text', place: { group: 'end', mode: 'spread', gap: 15 } },
+        { type: 'text', at: 'end', y: mid.at(-1), text: 'Median', baseline: 'middle', color: 'muted', place: { group: 'end', mode: 'spread', gap: 15 } },
+      ]);
+
+      // Bump chart
+      const names = ['Ash', 'Birch', 'Cedar', 'Dogwood', 'Elm', 'Fir'];
+      const weeks = 10;
+      const ranks = names.map((_, k) => Array.from({ length: weeks }, (_, w) => Math.min(names.length, Math.max(1, k + 1 + Math.round((rnd() - 0.5) * 3 * (w / weeks))))));
+      let selected = null;
+      const bump = new CartesianFigure(document.getElementById('bump'), {
+        theme,
+        margin: { top: 12, bottom: 12, left: 10, right: 60 },
+        x: { domain: [0, weeks - 1] },
+        y: { domain: [1, names.length], reverse: true },
+        hitSlop: 4,
+      });
+      const draw = () =>
+        bump.setData([
+          ...names.map((n, k) => ({
+            type: 'line', id: n, datum: { name: n }, points: ranks[k].map((y, x) => ({ x, y })),
+            color: n === selected ? 'accent' : 'axis', width: n === selected ? 2.5 : 1.25,
+          })),
+          ...names.map((n, k) => ({
+            type: 'text', text: n, at: 'end', y: ranks[k].at(-1), baseline: 'middle', color: n === selected ? 'text' : 'muted',
+            weight: n === selected ? 600 : 400, place: { group: 'ends', mode: 'spread', gap: 14 },
+          })),
+        ]);
+      draw();
+      bump.on('hover', ({ mark }) => bump.setActive(mark?.id ?? null));
+      bump.on('click', ({ mark }) => {
+        selected = mark?.id ?? null;
+        bump.setSelected(selected);
+        document.getElementById('log').textContent = selected ? `Selected ${selected}` : 'Nothing selected';
+        draw();
+      });
+
+      // Bars
+      const bars = new CartesianFigure(document.getElementById('bars'), {
+        theme,
+        margin: { top: 8, right: 8 },
+        x: { scale: 'band', padding: 0.3, axis: { tickSize: 0 } },
+        y: { axis: { ticks: 4 }, grid: true, include: [0] },
+      });
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+      const stacks = stackValues([months.map(() => rnd() * 6 + 1), months.map(() => rnd() * 4), months.map(() => -rnd() * 3)]);
+      bars.setData([
+        { type: 'rule', y: 0, color: 'axis' },
+        ...stacks.flatMap((s, k) => s.map((seg, i) => ({ type: 'bar', x: months[i], from: seg.from, to: seg.to, color: k }))),
+      ]);
+    </script>
+  </body>
+</html>
