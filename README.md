@@ -120,6 +120,9 @@ Hosts with their own number and date formats can pass `formatPrice(value)`, `for
 and `formatTime(time, { kind: 'mark' | 'crosshair', … })`; returning nothing from `formatTime` keeps the built-in text.
 `scheme` also accepts your own candle colors, `{ up, down }`, and `priceLine: 'label'` keeps the last-value label without the line.
 
+The `baseline` chart type measures from the first visible close; `chart.setSeriesOptions({ base: 0, baseColor: '#888' })` measures
+from a fixed value instead (which then always stays in the price range) and colors the baseline's own line.
+
 Display options for small, embedded views: `legend` `priceAxis` `timeAxis` `grid` `interactive` `crosshair` `priceLine`
 `rightOffset` `series`. `chart.fitTimeRange(from)` keeps the span from `from` to the latest bar fitted to the full width.
 

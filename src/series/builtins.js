@@ -287,16 +287,38 @@ export class AreaSeries extends LineSeries {
 }
 
 /** Relative to the value at the left edge of the view, fill above in the up color and below in the down color. */
+/**
+ * A line filled towards a baseline: up-colored above it, down-colored below.
+ * By default the baseline is the first visible close. Options: `base` (a fixed value such as 0, which then always stays
+ * in the price range) and `baseColor` (a CSS color or role name for the baseline's own line).
+ */
 export class BaselineSeries extends LineSeries {
   static id = 'baseline';
   static label = 'Baseline';
   static icon = 'M3 12h18M3 15l4-7 4 5 4-8 6 9';
+  static defaults = { ...LineSeries.defaults, base: null, baseColor: null };
+
+  /** The value the line is measured from: the fixed `base`, else the first visible close. */
+  #base() {
+    const fixed = this.options.base;
+    if (typeof fixed === 'number' && Number.isFinite(fixed)) return fixed;
+    const d = this.data;
+    const [a] = this.chart ? this.chart.visibleBars() : [0];
+    return d.close[Math.min(d.length - 1, Math.max(0, a))];
+  }
+
+  range(a, b) {
+    const r = super.range(a, b);
+    const fixed = this.options.base;
+    if (typeof fixed !== 'number' || !Number.isFinite(fixed)) return r;
+    return r ? { min: Math.min(r.min, fixed), max: Math.max(r.max, fixed) } : { min: fixed, max: fixed };
+  }
 
   draw(v) {
     const d = this.data;
     if (v.b < v.a) return;
     const { ctx, theme } = v;
-    const baseY = Math.round(v.y(d.close[v.a])) + 0.5;
+    const baseY = Math.round(v.y(this.#base())) + 0.5;
     const half = (clipTop, clipH, color) => {
       ctx.save();
       ctx.beginPath();
@@ -311,7 +333,7 @@ export class BaselineSeries extends LineSeries {
     ctx.beginPath();
     ctx.moveTo(0, baseY);
     ctx.lineTo(v.width, baseY);
-    ctx.strokeStyle = theme.textFaint;
+    ctx.strokeStyle = this.options.baseColor ? resolveColor(theme, this.options.baseColor) : theme.textFaint;
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 3]);
     ctx.stroke();
@@ -322,9 +344,7 @@ export class BaselineSeries extends LineSeries {
     const d = this.data;
     const n = d ? d.length : 0;
     if (!n) return [];
-    const [a] = this.chart ? this.chart.visibleBars() : [0];
-    const base = d.close[Math.min(n - 1, Math.max(0, a))];
-    return [{ value: d.close[n - 1], color: d.close[n - 1] >= base ? theme.up : theme.down, line: true }];
+    return [{ value: d.close[n - 1], color: d.close[n - 1] >= this.#base() ? theme.up : theme.down, line: true }];
   }
 }
 
