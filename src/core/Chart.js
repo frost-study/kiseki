@@ -1,5 +1,6 @@
 import { DrawingManager } from '../drawings/DrawingManager.js';
 import { Indicator } from '../indicators/Indicator.js';
+import { BarMarkers } from '../markers/BarMarkers.js';
 import { TradeMarkers } from '../trades/TradeMarkers.js';
 import { priceLineRange, spreadBoxes } from './priceLines.js';
 import { BarData } from './BarData.js';
@@ -30,11 +31,12 @@ let lineUid = 0;
  *
  * Besides the series and indicators, the main pane can show what the host knows about:
  *   chart.trades          where a position was entered and left, at the exact time and price (see TradeMarkers)
+ *   chart.markers        shapes with a short text above or below bars (journal pins, dividends, events), see BarMarkers
  *   chart.addPriceLine()  horizontal lines such as an average cost, a target or a stop
  *
  * Events: 'crosshair' 'range' 'data' 'indicators' 'type' 'tool' 'drawings'
  *           'drawing:select' 'indicator:settings' 'theme' 'frame'
- *           'trades' 'trade:hover' 'trade:click'
+ *           'trades' 'trade:hover' 'trade:click' 'markers' 'marker:hover' 'marker:click'
  */
 export class Chart extends EventEmitter {
   /**
@@ -125,6 +127,7 @@ export class Chart extends EventEmitter {
     /** @type {{id:string, price:number, title:string, color:string|number|null, dash:number[]|null, width:number, axisLabel:boolean, autoscale:boolean}[]} */
     this.priceLines = [];
     this.trades = new TradeMarkers(this);
+    this.markers = new BarMarkers(this);
     this.legend = new Legend(this);
     this.interaction = new Interaction(this);
     this.legend.rebuild();
@@ -185,6 +188,7 @@ export class Chart extends EventEmitter {
     ts.setData(data, this.utcOffset);
     for (const pane of this.panes) for (const item of pane.items) item.setData(data);
     this.trades.dataChanged();
+    this.markers.dataChanged();
     this.panes[0].scale.auto = true;
     ts.maxSpacing = 80;
     ts.barSpacing = 8;
@@ -838,6 +842,7 @@ export class Chart extends EventEmitter {
       if (pane === this.panes[0]) {
         this.#drawPriceLines(ctx, plotW, h);
         this.trades.draw(ctx);
+        this.markers.draw(ctx);
       }
       ctx.restore();
 

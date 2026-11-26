@@ -124,7 +124,7 @@ Display options for small, embedded views: `legend` `priceAxis` `timeAxis` `grid
 `rightOffset` `series`. `chart.fitTimeRange(from)` keeps the span from `from` to the latest bar fitted to the full width.
 
 Main API: `setData` `update` `append` `setType` `addIndicator` `removeIndicator` `updateIndicator` `setTheme` `setScaleMode`
-`showLastBars` `setVisibleTimeRange` `scrollToTime` `fitContent` `scrollToRealtime` `trades` `addPriceLine` `removePriceLine`
+`showLastBars` `setVisibleTimeRange` `scrollToTime` `fitContent` `scrollToRealtime` `trades` `markers` `addPriceLine` `removePriceLine`
 `toCanvas` `serialize` `restore` `on(event, fn)`
 
 ### Trade markers and price lines
@@ -174,6 +174,26 @@ On a touch screen a tapped marker keeps its details open until the next tap.
 range's height of the visible bars, so a target just above the highs is shown and one far away does not flatten the
 candles. `box: true` prints the title in a box at the right edge (surface color, the line's color as the border, plain text
 inside; boxes keep clear of each other) instead of as colored text above the line.
+
+### Markers on bars
+
+`chart.markers` puts a small shape with a short text above or below a bar: journal pins, dividends, notes, events. Unlike
+trade markers they have no price; they sit just outside the bar's high or low, and several on one side of a bar stack.
+
+```js
+chart.markers.set([
+  { time: 1764031020000, position: 'above', shape: 'circle', color: 'accent', text: 'J', id: 'entry-12' },
+  { time: 1764031020000, position: 'below', shape: 'square', color: '#2a7', text: 'D' },
+]);
+chart.on('marker:click', ({ items }) => open(items[0].id));   // items are the objects you passed in
+chart.on('marker:hover', (hit) => showHint(hit));              // null when the pointer leaves
+```
+
+- `position` is `'above'` (default) or `'below'`; `shape` is `'circle'` (default), `'square'`, `'arrowUp'` or `'arrowDown'`;
+  `color` is a CSS color or a role name (`'up'`, `'down'`, `'accent'`, …).
+- A marker lands on the bar that contains its `time`, so the same list stays right on every timeframe.
+- Hover and click are hit-tested within 14 px of a marker's centre; the chart draws no tooltip, the host decides what to show.
+- Also: `add(item)` `remove(idOrItem)` `clear()` `visible` `items` `count`.
 
 ## Extending
 
@@ -294,6 +314,7 @@ src/
   indicators/  indicator runtime, math helpers, built-in definitions
   drawings/    drawing tools
   trades/      trade markers (entries and exits at their exact time and price)
+  markers/     markers on bars (pins, dividends, events)
   data/        timeframe aggregation, synthetic data, CSV
   widgets/     embeddable widgets (advanced chart, symbol overview, mini chart, ticker tape)
   ui/          entry points of the demo page and the widget gallery
@@ -323,6 +344,7 @@ tools/         dev server and the in-browser randomized stress test
 | ← → / ↑ ↓ / Home / End | Pan / zoom / oldest / latest |
 | Esc / Delete | Cancel drawing / remove the selected drawing |
 | Point at / tap a trade marker | Exact price, time and result |
+| Point at / tap a bar marker | `marker:hover` / `marker:click` for the host |
 
 ## License
 
