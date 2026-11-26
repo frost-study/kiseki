@@ -246,7 +246,7 @@ export class Figure extends EventEmitter {
     if (mark.kind === 'path') {
       // behind everything already drawn, so the line itself stays on top
       ctx.globalCompositeOperation = 'destination-over';
-      ctx.lineWidth = (mark.width ?? 1.5) + look.width * 2 + 2;
+      ctx.lineWidth = Math.max(look.width * 2, (mark.width ?? 1.5) + 2);
       ctx.beginPath();
       for (const run of mark.runs) {
         run.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
