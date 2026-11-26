@@ -54,7 +54,7 @@ export function barIndexAt(data, time) {
 /**
  * Turn what a host passes into fills (one buy or sell at an exact time and price) and round trips.
  *
- *   { time, price, side: 'buy' | 'sell', qty?, label?, note?, color?, id? }              a single fill
+ *   { time, price, side: 'buy' | 'sell', qty?, label?, tag?, note?, color?, id? }         a single fill
  *   { side: 'long' | 'short', qty?, entry: { time, price }, exit?: { time, price }, … }  a round trip (in and out)
  *
  * Entries without a finite time and price are skipped. Fills come back sorted by time.
@@ -75,6 +75,7 @@ export function normalizeTrades(list) {
       buy,
       qty: num(leg.qty) ?? qty,
       label: text(leg.label) ?? (role === 'exit' ? null : text(src.label)),
+      tag: text(leg.tag) ?? (role === 'exit' ? null : text(src.tag)),
       note: text(leg.note) ?? text(src.note),
       color: leg.color ?? src.color ?? null,
       role,
@@ -620,7 +621,9 @@ export class TradeMarkers {
 
   #labelOf(group, colors) {
     const own = (f) => {
-      if (f.label !== null) return { text: f.label, color: this.#colorOf(f, colors) };
+      // `tag` is the text beside the arrow; without one the label is (the label always stays in the details)
+      const text = f.tag ?? f.label;
+      if (text !== null) return { text, color: this.#colorOf(f, colors) };
       if (f.role !== 'exit') return null;
       const r = tradeResult(f.trade);
       return { text: formatPercent(r.pct), color: r.diff >= 0 ? colors.profit : colors.loss };

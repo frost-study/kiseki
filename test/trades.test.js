@@ -245,3 +245,16 @@ test('sampleTrades: deterministic, and every fill sits inside its bar', () => {
   assert.ok(trades.slice(0, -1).every((tr) => tr.exit && tr.exit.time > tr.entry.time));
   assert.deepEqual(sampleTrades(new BarData()), []);
 });
+
+test('normalizeTrades: `tag` is the text beside the arrow and the label stays in the details', () => {
+  const d = bars(12);
+  const tm = new TradeMarkers({ ...stubChart(d), theme: { up: '#0a0', down: '#a00' }, main: { format: String }, options: {}, utcOffset: 0 });
+  tm.set([
+    { time: d.time[2], price: 100, side: 'buy', qty: 3, label: 'Dip buy', tag: 'B 3' },
+    { time: d.time[6], price: 105, side: 'sell', label: 'Trim' },
+    { side: 'long', entry: { time: d.time[8], price: 101, tag: 'in' }, exit: { time: d.time[10], price: 103 }, tag: 'x' },
+  ]);
+  const { fills } = normalizeTrades(tm.items);
+  assert.deepEqual(fills.map((f) => f.tag), ['B 3', null, 'in', null]); // the exit does not inherit the trade's tag
+  assert.equal(tm.describe({ fills: [fills[0]], buy: true }).title, 'Buy · Dip buy');
+});

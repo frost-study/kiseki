@@ -137,7 +137,7 @@ A working page is in [examples/trades.html](examples/trades.html); the demo has 
 
 ```js
 chart.trades.set([
-  // One fill: a time, a price and a side. `qty`, `label`, `note` and `color` are optional.
+  // One fill: a time, a price and a side. `qty`, `label`, `tag`, `note` and `color` are optional.
   { time: 1764031020000, price: 3184, side: 'buy', qty: 100, label: 'Dip buy', note: 'Shown in the details' },
   // A round trip: entry and exit are joined by a line in the color of the result, and the exit shows it (+2.65%).
   { side: 'long', qty: 50, entry: { time: 1764050400000, price: 3210 }, exit: { time: 1764241200000, price: 3295 } },
@@ -166,6 +166,8 @@ chart.on('trade:click', ({ items }) => chart.trades.reveal(items[0]));   // item
 Also: `add(entry)` `remove(idOrEntry)` `clear()` `visible` `reveal(idOrEntry)` `position()` and
 `setOptions({ labels, connectors, openLine, autoscale, colors: { buy, sell, profit, loss }, formatQty })`.
 Colors follow the candle scheme unless set. `side` also accepts `'in'` / `'out'`.
+`label` names a fill (it heads the details); `tag` is the short text printed beside the arrow instead (it defaults to `label`).
+On a touch screen a tapped marker keeps its details open until the next tap.
 `addPriceLine({ price, title, color, dash, width, axisLabel, autoscale })` returns the line for
 `updatePriceLine` / `removePriceLine`.
 

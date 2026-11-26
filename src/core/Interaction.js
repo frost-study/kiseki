@@ -24,10 +24,11 @@ export class Interaction {
     on('pointermove', (e) => this.#move(e));
     on('pointerup', (e) => this.#up(e));
     on('pointercancel', (e) => this.#up(e));
-    on('pointerleave', () => {
+    on('pointerleave', (e) => {
       if (this.#mode) return;
       this.chart.clearCrosshair();
-      this.chart.trades.pointer(null);
+      // A finger that lifts has left the chart as well, and it cannot hover: what a tap opened stays until the next tap.
+      if (e.pointerType !== 'touch') this.chart.trades.pointer(null);
     });
     on('wheel', (e) => this.#wheel(e), { passive: false });
     on('dblclick', (e) => this.#dblclick(e));
