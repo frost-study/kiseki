@@ -506,3 +506,10 @@ test('a cell can be outlined (dashed), shaded, and print a label that is cut wit
   fig.renderNow();
   assert.equal(calls(fig, 'fillText').length, 2, 'a cell too small for a letter prints nothing new');
 });
+
+test('an outline in palette color 0 is drawn (index 0 is a color, not "none")', () => {
+  const fig = new CartesianFigure(element('div'), { width: 60, height: 40, x: { scale: 'band', domain: ['a'], padding: 0 }, y: { scale: 'band', domain: ['r'], padding: 0 } });
+  fig.setData([{ type: 'cell', x: 'a', y: 'r', color: null, stroke: 0 }, { type: 'dot', x: 'a', y: 'r', color: null, stroke: 0 }]);
+  fig.renderNow();
+  assert.equal(calls(fig, 'stroke').length, 2);
+});

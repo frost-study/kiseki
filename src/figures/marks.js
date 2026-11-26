@@ -269,7 +269,7 @@ const bar = {
       hatch(ctx, box, env.color(s.pattern.color ?? s.color ?? 0), s.pattern);
       ctx.restore();
     }
-    if (s.stroke) {
+    if (s.stroke !== undefined && s.stroke !== null) {
       ctx.strokeStyle = env.color(s.stroke);
       const lw = s.strokeWidth ?? 1;
       ctx.lineWidth = lw;
@@ -338,7 +338,7 @@ const dot = {
       ctx.fillStyle = env.color(s.color ?? 'series');
       ctx.fill();
     }
-    if (s.stroke) {
+    if (s.stroke !== undefined && s.stroke !== null) {
       ctx.strokeStyle = env.color(s.stroke);
       ctx.lineWidth = s.strokeWidth ?? 1;
       if (s.strokeDash) ctx.setLineDash(s.strokeDash);
@@ -407,7 +407,7 @@ const region = {
     ctx.globalAlpha = s.opacity ?? 1;
     ctx.fillStyle = env.color(s.color ?? 'muted');
     if (s.color !== null) ctx.fillRect(box.x, box.y, box.w, box.h);
-    if (s.stroke) {
+    if (s.stroke !== undefined && s.stroke !== null) {
       const lw = s.strokeWidth ?? 1;
       ctx.strokeStyle = env.color(s.stroke);
       ctx.lineWidth = lw;
@@ -474,7 +474,7 @@ const cell = {
       ctx.fill();
       ctx.restore();
     }
-    if (s.stroke) {
+    if (s.stroke !== undefined && s.stroke !== null) {
       const lw = s.strokeWidth ?? 1;
       ctx.strokeStyle = env.color(s.stroke);
       ctx.lineWidth = lw;
