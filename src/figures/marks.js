@@ -447,7 +447,7 @@ function cornerLabel(env, box, label) {
  * its edge (`strokeDash` for a dashed one, `color: null` leaves it unfilled); `shade` (0–1) lays a black veil over it (a pointer
  * resting on it).
  * `label: { text, color, size = 11, weight, align = 'center', pad = 2, ellipsis }` prints words in the cell: centred, or from the
- * `'start'` or `'end'` edge `pad` px in. With `ellipsis` a word wider than the cell (less its padding) is cut short with an ellipsis,
+ * `'start'` or `'end'` edge `pad` px in (a negative `pad` lets the word overhang the cell by that much). With `ellipsis` a word wider than the cell (less its padding) is cut short with an ellipsis,
  * and nothing is printed when not even one letter fits. The mark's geometry says whether the label was cut: `cut`.
  */
 const cell = {
