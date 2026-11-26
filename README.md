@@ -241,7 +241,7 @@ fig.on('click', ({ mark }) => select(mark?.datum));       // pointer events are 
   `line` (gaps, step, halo, dash; `fade` makes a trail whose segments grow more opaque, `vertices` dots its points) · `area`
   (between `y0` and `y1`) · `bar` (vertical or horizontal; give each segment its own `from` / `to`, see `stackValues`, for
   stacked or diverging bars) · `dot` (optionally outlined, dashed) · `rule` · `region` (outlined; `label` prints words in a
-  corner) · `cell` (band × band) · `text` (`at: 'end'` end labels; `place` keeps labels from overlapping) · `arrow` (an exact
+  corner) · `cell` (band × band) · `text` (`at: 'end'` end labels; `place` keeps labels from overlapping; `rotate`) · `arrow` (an exact
   `headLength` × `headWidth`) · `link` (an S-shaped ribbon between two points, `direction: 'h' | 'v'`). Colors are CSS colors, palette indices
   or role names (`'up'` `'down'` `'accent'` `'muted'` `'text'` `'series'` `'grid'` `'axis'` `'faint'` `'surface'` …).
 - **Presets** are registered in `figureTypes` (`'cartesian'`, `'sparkline'`, `'donut'`, `'treemap'`) and created with `createFigure(el, id, options)`.

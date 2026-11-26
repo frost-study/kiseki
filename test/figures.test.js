@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { figureTypes, markTypes } from '../src/core/Registry.js';
 import { resolveColor, resolveTheme } from '../src/core/theme.js';
 import { hitTest } from '../src/figures/hit.js';
-import { donutSlices, sectorBounds, sectorOutline } from '../src/figures/donut.js';
+import { donutSlices, sectorBounds, sectorOutline, unwrap } from '../src/figures/donut.js';
 import { fadeOpacities, linkPoints } from '../src/figures/marks.js';
 import { ellipsize, fitLines, squarify } from '../src/figures/treemap.js';
 import { nextInDirection, placeBoxes, placeTickLabels, spreadLabels, stackValues } from '../src/figures/layout.js';
@@ -255,6 +255,11 @@ test('sectorOutline: the corner circles touch both circles and the side lines; a
   const n0 = { x: -Math.sin(0.2), y: Math.cos(0.2) };
   near(outerStart.cx * n0.x + outerStart.cy * n0.y, 3.2, 1e-9);
   assert.deepEqual(o.start, { x: outerStart.cx - n0.x * 2, y: outerStart.cy - n0.y * 2 });
+  // a convex shape drawn clockwise turns clockwise at every corner, by less than half a turn
+  for (const c of o.corners) {
+    const sweep = unwrap(c.from, c.to, false) - c.from;
+    assert.ok(sweep > 0 && sweep < Math.PI, `corner sweep ${sweep}`);
+  }
   const whole = sectorOutline({ r0: 54, r1: 80, a0: 0, a1: Math.PI * 2, gap: 0, corner: 2 });
   assert.equal(whole.whole, true);
   assert.equal(sectorOutline({ r0: 54, r1: 80, a0: 0, a1: 0.01, gap: 6, corner: 2 }), null, 'thinner than its gap');

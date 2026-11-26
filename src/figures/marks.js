@@ -423,6 +423,7 @@ const cell = {
 /**
  * text: { x, y, text, at, anchor, baseline, dx, dy, size = 11, weight, color, halo: { color, width }, place }
  *   anchor    'start' (default) | 'middle' | 'end'
+ *   rotate    degrees, clockwise on screen, about the anchor point (a y axis title is -90)
  *   baseline  'alphabetic' (default: y is the baseline) | 'middle' (y is the centre of the line) | 'top'
  *   at        'end': placed just right of the plot at the height of `y` (an end label); the right margin makes room for it
  *   halo      an outline drawn first, for text over lines (width in px, centred on the glyph edge)
@@ -446,14 +447,22 @@ const text = {
     ctx.globalAlpha = s.opacity ?? 1;
     const w = ctx.measureText(String(s.text)).width;
     const base = at.y + (s.baseline === 'middle' ? size * 0.32 : s.baseline === 'top' ? size * 0.8 : 0);
+    let tx = at.x;
+    let ty = base;
+    if (s.rotate) {
+      ctx.translate(at.x, base);
+      ctx.rotate((s.rotate * Math.PI) / 180);
+      tx = 0;
+      ty = 0;
+    }
     if (s.halo) {
       ctx.strokeStyle = env.color(s.halo.color);
       ctx.lineWidth = s.halo.width ?? 3;
       ctx.lineJoin = 'round';
-      ctx.strokeText(String(s.text), at.x, base);
+      ctx.strokeText(String(s.text), tx, ty);
     }
     ctx.fillStyle = env.color(s.color ?? 'text');
-    ctx.fillText(String(s.text), at.x, base);
+    ctx.fillText(String(s.text), tx, ty);
     ctx.restore();
     const left = ctx.textAlign === 'end' ? at.x - w : ctx.textAlign === 'center' ? at.x - w / 2 : at.x;
     return { kind: 'text', x: left, y: base - size * 0.8, w, h: size * 1.2 };

@@ -44,7 +44,7 @@ export function donutSlices(items, { startAngle = -Math.PI / 2, padAngle = 0 } =
  * four corners is rounded with radius `corner` (reduced when the sector is too small for it). A sector that is a whole ring
  * (no gap, a span of a full turn) has no corners.
  *
- * @returns {{ whole: true } | { whole: false, corners: {cx:number, cy:number, from:number, to:number, ccw:boolean}[], r0:number, r1:number, start:{x:number,y:number} } | null}
+ * @returns {{ whole: true } | { whole: false, corners: {cx:number, cy:number, from:number, to:number}[], r0:number, r1:number, start:{x:number,y:number} } | null}
  *   `null` when nothing is left to draw (the sector is thinner than its gap).
  */
 export function sectorOutline({ cx = 0, cy = 0, r0, r1, a0, a1, gap = 0, corner = 0 }) {
@@ -96,10 +96,10 @@ function build(cx, cy, r0, r1, a0, a1, h, cr) {
   const eo1 = foot(c.eo, s1);
   const ei1 = foot(c.ei, s1);
   const corners = [
-    { cx: c.io.x, cy: c.io.y, from: ang(eo0, c.io), to: ang(o0, c.io), ccw: false },
-    { cx: c.eo.x, cy: c.eo.y, from: ang(o1, c.eo), to: ang(eo1, c.eo), ccw: false },
-    { cx: c.ei.x, cy: c.ei.y, from: ang(ei1, c.ei), to: ang(i1, c.ei), ccw: true },
-    { cx: c.ii.x, cy: c.ii.y, from: ang(i0, c.ii), to: ang(ei0, c.ii), ccw: true },
+    { cx: c.io.x, cy: c.io.y, from: ang(eo0, c.io), to: ang(o0, c.io) },
+    { cx: c.eo.x, cy: c.eo.y, from: ang(o1, c.eo), to: ang(eo1, c.eo) },
+    { cx: c.ei.x, cy: c.ei.y, from: ang(ei1, c.ei), to: ang(i1, c.ei) },
+    { cx: c.ii.x, cy: c.ii.y, from: ang(i0, c.ii), to: ang(ei0, c.ii) },
   ];
   return { whole: false, cx, cy, r0, r1, cr, start: eo0, outer: { from: ang(o0, { x: cx, y: cy }), to: ang(o1, { x: cx, y: cy }) }, inner: { from: ang(i1, { x: cx, y: cy }), to: ang(i0, { x: cx, y: cy }) }, corners };
 }
@@ -141,14 +141,14 @@ export function traceSector(ctx, o) {
   ctx.arc(co.cx, co.cy, o.cr, co.from, co.to, false);
   ctx.arc(o.cx, o.cy, o.r1, o.outer.from, unwrap(o.outer.from, o.outer.to, false), false);
   ctx.arc(ce.cx, ce.cy, o.cr, ce.from, unwrap(ce.from, ce.to, false), false);
-  ctx.arc(ie.cx, ie.cy, o.cr, ie.from, unwrap(ie.from, ie.to, true), true);
+  ctx.arc(ie.cx, ie.cy, o.cr, ie.from, unwrap(ie.from, ie.to, false), false);
   ctx.arc(o.cx, o.cy, o.r0, o.inner.from, unwrap(o.inner.from, o.inner.to, true), true);
-  ctx.arc(ii.cx, ii.cy, o.cr, ii.from, unwrap(ii.from, ii.to, true), true);
+  ctx.arc(ii.cx, ii.cy, o.cr, ii.from, unwrap(ii.from, ii.to, false), false);
   ctx.closePath();
 }
 
 // `arc` takes the end angle as given and sweeps in the stated direction, so make it the same angle modulo a turn
-function unwrap(from, to, ccw) {
+export function unwrap(from, to, ccw) {
   let d = to - from;
   if (ccw) {
     while (d > 0) d -= TURN;

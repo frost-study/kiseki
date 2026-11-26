@@ -441,3 +441,12 @@ test('an inset emphasis rings a box inside its edge', () => {
   fig.renderNow();
   assert.deepEqual(calls(fig, 'strokeRect').at(-1).slice(1), [1, 1, 98, 48]);
 });
+
+test('cartesian: a text mark can be rotated about its anchor', () => {
+  const fig = new CartesianFigure(element('div'), { width: 100, height: 100, x: { domain: [0, 10] }, y: { domain: [0, 10] } });
+  fig.setData([{ type: 'text', x: 0, y: 5, dx: -30, text: 'Momentum', anchor: 'middle', rotate: -90 }]);
+  fig.renderNow();
+  assert.deepEqual(calls(fig, 'translate')[0].slice(1), [-30, 50]);
+  assert.ok(Math.abs(calls(fig, 'rotate')[0][1] + Math.PI / 2) < 1e-9);
+  assert.deepEqual(calls(fig, 'fillText')[0].slice(1), ['Momentum', 0, 0]);
+});
