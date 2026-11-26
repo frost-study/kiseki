@@ -312,3 +312,17 @@ test('toCanvas returns the figure on a canvas of its own without touching the ma
   assert.strictEqual(fig.marks, marks);
   assert.ok(out.log.some((c) => c[0] === 'stroke'));
 });
+
+test('axis ticks may be a function of the axis length, and a tick can carry its own grid color', () => {
+  const lengths = [];
+  const fig = new CartesianFigure(element('div'), {
+    width: 300,
+    height: 100,
+    x: { domain: [0, 10], axis: { ticks: (len) => (lengths.push(len), [0, 10]) } },
+    y: { domain: [0, 4], axis: { ticks: [{ value: 0, gridColor: '#f00' }, 2] }, grid: true },
+  });
+  fig.setData([]);
+  fig.renderNow();
+  assert.deepEqual(lengths, [fig.plot.w]);
+  assert.ok(fig.canvas.log.some((c) => c[0] === 'set strokeStyle' && c[1] === '#f00'));
+});

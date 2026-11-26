@@ -16,10 +16,11 @@ function defaultFormat(v) {
 /**
  * Tick entries of one axis: [{ value, label, gridColor }]. `axis.ticks` is a count (default: by the room), or a list of
  * values or `{ value, label, gridColor }`; labels come from `axis.formatTicks(values)` (all at once, so a host can give them
- * one precision) or `axis.format(value)`.
+ * one precision) or `axis.format(value)`. `axis.ticks` may also be a function of the axis length in px that returns either.
  */
-function resolveTicks(axis, scale, room) {
-  const given = axis.ticks;
+function resolveTicks(axis, scale, length, perTick) {
+  const given = typeof axis.ticks === 'function' ? axis.ticks(length) : axis.ticks;
+  const room = length / perTick;
   const raw = Array.isArray(given) ? given : scale.ticks(typeof given === 'number' ? given : Math.max(2, Math.min(8, room)));
   const ticks = raw.map((t) => (t !== null && typeof t === 'object' ? t : { value: t }));
   const labels = axis.formatTicks?.(ticks.map((t) => t.value));
@@ -42,7 +43,7 @@ function resolveTicks(axis, scale, room) {
  *   padding   band scale: the gap between bands as a fraction of a step (default 0.2)
  *   utcOffset time scale: the offset (ms) of the calendar used for ticks
  *   axis      false (default) | { ticks, format, formatTicks, color, textColor, tickSize, gap }
- *               ticks       a count, or a list of values or { value, label, gridColor }
+ *               ticks       a count, or a list of values or { value, label, gridColor }, or (lengthPx) => either
  *               format      (value) => label            formatTicks  (values) => labels, takes priority
  *               tickSize    length of the tick marks (default 4 on x, 0 on y)
  *               gap         least space between x labels (default 10)
@@ -101,7 +102,7 @@ export class CartesianFigure extends Figure {
     let left = m.left;
     if (ya) {
       const prov = makeScale(yo, ys, yRange(top, H - bottom));
-      yTicks = resolveTicks(ya, prov, (H - top - bottom) / 40);
+      yTicks = resolveTicks(ya, prov, H - top - bottom, 40);
       left = Math.max(left, Math.max(0, ...yTicks.map((t) => textW(t.label))) + (ya.tickSize ?? 0) + 10);
     }
     const right = Math.max(m.right, endRoom);
@@ -131,7 +132,7 @@ export class CartesianFigure extends Figure {
     ctx.save();
     ctx.lineWidth = 1;
     if (yo.grid) {
-      for (const t of ya ? yTicks : resolveTicks({ ticks: yo.ticks }, sy, plot.h / 40)) {
+      for (const t of ya ? yTicks : resolveTicks({ ticks: yo.ticks }, sy, plot.h, 40)) {
         const y = crisp(sy.pos(t.value), 1, this.dpr);
         const g = gridOf(yo.grid === true ? null : yo.grid, t);
         ctx.strokeStyle = this.color(g.color);
@@ -144,7 +145,7 @@ export class CartesianFigure extends Figure {
     }
     let xTicks = [];
     if (xa || xo.grid) {
-      xTicks = resolveTicks(xa ?? { ticks: xo.ticks }, sx, plot.w / 90);
+      xTicks = resolveTicks(xa ?? { ticks: xo.ticks }, sx, plot.w, 90);
     }
     if (xo.grid) {
       for (const t of xTicks) {

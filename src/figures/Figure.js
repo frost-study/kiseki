@@ -51,6 +51,7 @@ function schedule(fig) {
  * @param {number} [options.width]   fixed width in CSS px
  * @param {number} [options.height]  fixed height in CSS px
  * @param {number} [options.hitSlop=0]  how far from a mark (px) the pointer still counts as on it
+ * @param {string} [options.cursor='pointer']  the CSS cursor while the pointer is on a mark
  * @param {{active?: object, selected?: object}} [options.emphasis]  look of setActive / setSelected: { color, width }
  */
 export class Figure extends EventEmitter {
@@ -341,7 +342,7 @@ export class Figure extends EventEmitter {
     const move = (e) => {
       const { x, y } = point(e);
       const mark = this.markAt(x, y);
-      this.canvas.style.cursor = mark ? 'pointer' : '';
+      this.canvas.style.cursor = mark ? this.options.cursor ?? 'pointer' : '';
       if ((mark?.id ?? null) === (this.#hover?.id ?? null)) return;
       this.#hover = mark;
       this.emit('hover', { mark, x, y });
