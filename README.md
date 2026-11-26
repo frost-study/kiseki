@@ -233,6 +233,8 @@ Plot types are `line` / `histogram` / `dots` / `band` / `cloud` / `custom`. A nu
 categorical palette; `'up'`, `'down'` and `'accent'` are role colors.
 `custom` plots implement `draw(view, ctx, self)` themselves and suit things whose shape depends on the visible range
 (the volume profile, bubbles and heatmap are built this way — see [src/indicators/volume.js](src/indicators/volume.js)).
+A line's color, width, dash and axis label can be set per instance: `chart.addIndicator('sma', { length: 25 }, { value: { color: '#c60', width: 1, dash: [5, 4], axisLabel: false } })`
+(the keys are the plots' `key`s; `chart.updateIndicator(ind, inputs, styles)` changes them later).
 Every field of a definition is documented at the top of [src/indicators/Indicator.js](src/indicators/Indicator.js).
 
 ### Chart types

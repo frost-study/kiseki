@@ -283,3 +283,40 @@ test('indicator values match independent naive implementations', () => {
     assert.ok(rising ? sar.value[i] <= L[i] + 1e-9 || sar.dir[i - 1] < 0 : sar.value[i] >= H[i] - 1e-9 || sar.dir[i - 1] > 0, `sar[${i}] lies inside the bar`);
   }
 });
+
+test('indicator styles: a line takes its color, width and dash from the instance, falling back to the definition', () => {
+  const d = randomBars(30);
+  const draws = [];
+  const ctx = {
+    beginPath() {},
+    moveTo() {},
+    lineTo() {},
+    setLineDash(dash) {
+      draws.push({ dash, color: this.strokeStyle, width: this.lineWidth });
+    },
+    stroke() {},
+  };
+  const view = { ctx, dpr: 1, theme: { textFaint: '#999', palette: ['#00f'] }, width: 300, height: 100, x0: 0, bs: 10, a: 0, b: 29, ra: 0, rb: 29, y: (v) => 200 - v };
+  const draw = (styles) => {
+    draws.length = 0;
+    const ind = new Indicator(indicators.get('sma'), { length: 5 }, styles);
+    ind.attach({ utcOffset: 0, theme: {}, main: { precision: 2 } }, null);
+    ind.setData(d);
+    ind.draw(view);
+    return draws.find((x) => x.dash.length);
+  };
+  assert.equal(draw({}), undefined); // the built-in definition draws a solid line
+  assert.deepEqual(draw({ value: { color: '#f00', width: 1, dash: [5, 4] } }), { dash: [5, 4], color: '#f00', width: 1 });
+});
+
+test('indicator styles: the last-value label on the price axis can be turned off per instance', () => {
+  const d = randomBars(30);
+  const labels = (styles) => {
+    const ind = new Indicator(indicators.get('sma'), { length: 5 }, styles);
+    ind.attach({ utcOffset: 0, theme: {}, main: { precision: 2 } }, null);
+    ind.setData(d);
+    return ind.lastValues({ palette: ['#00f'] }).length;
+  };
+  assert.equal(labels({}), 1);
+  assert.equal(labels({ value: { axisLabel: false } }), 0);
+});

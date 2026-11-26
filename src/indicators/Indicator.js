@@ -23,7 +23,7 @@ const VALUE_PLOTS = new Set(['line', 'histogram', 'dots']);
  *            // type: int | float | source | select(options) | bool
  *   buffers: ['tmp'],              // scratch arrays that are not plotted
  *   plots: [
- *     { key, type: 'line', color, width, dash, offset, label },
+ *     { key, type: 'line', color, width, dash, offset, label },   // color, width, dash and axisLabel can be overridden per instance in `styles`
  *     { key, type: 'histogram', colors, colorOf(i, ctx), base, column },
  *     { key, type: 'dots', color },
  *     { type: 'band',  a, b, color, opacity },                 // fill between two lines
@@ -271,7 +271,7 @@ export class Indicator {
         strokeLine(v, arr, n, {
           color: this.#color(plot, theme),
           width: this.styles[plot.key]?.width ?? plot.width ?? 1.5,
-          dash: plot.dash,
+          dash: this.styles[plot.key]?.dash ?? plot.dash,
           offset,
           index: idx,
         });
@@ -330,7 +330,7 @@ export class Indicator {
     if (!n) return [];
     const res = [];
     for (const plot of this.def.plots) {
-      if (plot.type !== 'line' || plot.axisLabel === false || this.#offset(plot) !== 0) continue;
+      if (plot.type !== 'line' || (this.styles[plot.key]?.axisLabel ?? plot.axisLabel) === false || this.#offset(plot) !== 0) continue;
       const val = this.out[plot.key][n - 1];
       if (val === val) res.push({ value: val, color: this.#color(plot, theme), line: false });
     }
