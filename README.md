@@ -240,8 +240,8 @@ fig.on('click', ({ mark }) => select(mark?.datum));       // pointer events are 
   and margins that fit the labels and the end labels. Marks are drawn in the order given:
   `line` (gaps, step, halo, dash; `fade` makes a trail whose segments grow more opaque, `vertices` dots its points) · `area`
   (between `y0` and `y1`) · `bar` (vertical or horizontal; give each segment its own `from` / `to`, see `stackValues`, for
-  stacked or diverging bars) · `dot` (optionally outlined, dashed) · `rule` · `region` (outlined; `label` prints words in a
-  corner) · `cell` (band × band) · `text` (`at: 'end'` end labels; `place` keeps labels from overlapping; `rotate`) · `arrow` (an exact
+  stacked or diverging bars; `pattern` hatches it, `strokeInside` keeps an outline within its size) · `dot` (optionally outlined, dashed) · `rule` · `region` (outlined; `label` prints words in a
+  corner) · `cell` (band × band; dashed outline, `shade`, and a `label` that can start or end at an edge and be cut with an ellipsis) · `text` (`at: 'end'` end labels; `place` keeps labels from overlapping; `rotate`) · `arrow` (an exact
   `headLength` × `headWidth`) · `link` (an S-shaped ribbon between two points, `direction: 'h' | 'v'`). Colors are CSS colors, palette indices
   or role names (`'up'` `'down'` `'accent'` `'muted'` `'text'` `'series'` `'grid'` `'axis'` `'faint'` `'surface'` …).
 - **Presets** are registered in `figureTypes` (`'cartesian'`, `'sparkline'`, `'donut'`, `'treemap'`) and created with `createFigure(el, id, options)`.
@@ -255,7 +255,7 @@ fig.on('click', ({ mark }) => select(mark?.datum));       // pointer events are 
   pointed at) and `figureTypes.register(Class)`; new marks go through `markTypes.register({ id, extent, draw })`.
 - **Pure helpers**, tested without a DOM: `linearScale` `timeScale` `bandScale` `makeScale` `timeTicks` (calendar ticks)
   · `spreadLabels` `placeTickLabels` `placeBoxes` · `stackValues` · `hitTest` · `nextInDirection` (the mark to move to with an arrow
-  key, for tiles and cells) · `squarify` `fitLines` `ellipsize` (treemap) · `donutSlices` `sectorOutline` `sectorBounds` (donut) ·
+  key, for tiles and cells) · `squarify` `fitLines` `ellipsize` (treemap; they live in `layout.js`, so they load without a figure) · `donutSlices` `sectorOutline` `sectorBounds` (donut) ·
   `fadeOpacities` `linkPoints`.
 - **Words.** Figures print no words of their own: tick labels, end labels and text marks all come from the host.
 

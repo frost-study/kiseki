@@ -42,6 +42,13 @@
       <h2>Bars on a band scale</h2>
       <div class="box" id="bars"></div>
 
+      <h2>Hatched bars and a grid of cells</h2>
+      <p>A <code>bar</code> with a <code>pattern</code> (an estimate next to a received amount), and <code>cell</code>s with dashed outlines, shade and labels cut with an ellipsis.</p>
+      <div class="row">
+        <div class="box" id="hatch" style="flex: 1; min-width: 260px"></div>
+        <div class="box" id="cells" style="flex: 1; min-width: 260px"></div>
+      </div>
+
       <h2>Donut and treemap</h2>
       <p>Sectors and tiles are marks too: point at them. A tile says how many of its text lines fit.</p>
       <div class="row">
@@ -143,6 +150,25 @@
         { type: 'rule', y: 0, color: 'axis' },
         ...stacks.flatMap((s, k) => s.map((seg, i) => ({ type: 'bar', x: months[i], from: seg.from, to: seg.to, color: k }))),
       ]);
+
+      // Hatched bars: received (solid) and expected (hatched, outlined inside the bar)
+      const hatch = new CartesianFigure(document.getElementById('hatch'), {
+        theme, height: 120, margin: { top: 6 },
+        x: { scale: 'band', padding: 0.3, axis: { tickSize: 0 } }, y: { include: [0], grid: true },
+      });
+      hatch.setData(months.flatMap((m, i) => [
+        { type: 'bar', x: m, to: 4 + ((i * 7) % 5), color: null, pattern: { color: 0, angle: 135, width: 1.5, period: 5 }, stroke: 0, strokeInside: true, radius: [2, 2, 0, 0] },
+        { type: 'bar', x: m, to: 2 + ((i * 3) % 4), color: 0, radius: [2, 2, 0, 0], ratio: 0.6 },
+      ]));
+
+      // Cells: a dashed empty cell, a shaded one and labels that are cut to fit
+      const keys = ['a', 'b', 'c', 'd'];
+      const cells = new CartesianFigure(document.getElementById('cells'), {
+        theme, height: 90, x: { scale: 'band', domain: keys, padding: 0 }, y: { scale: 'band', domain: ['r1', 'r2'], padding: 0 },
+      });
+      cells.setData(['r1', 'r2'].flatMap((r, j) => keys.map((k, i) => (j === 1 && i === 2
+        ? { type: 'cell', x: k, y: r, color: null, stroke: 'axis', strokeDash: [2, 2], radius: 2, label: { text: '—', color: 'muted' } }
+        : { type: 'cell', x: k, y: r, color: (i + j) % 6, radius: 2, shade: j === 0 && i === 1 ? 0.08 : 0, label: { text: i === 3 ? 'A long caption' : '+' + (i + 1) + '.4%', ellipsis: true, color: 'bg', weight: 500 } }))));
 
       // Donut and treemap
       const donut = createFigure(document.getElementById('donut'), 'donut', { width: 160, height: 160, theme, label: { text: '100%', size: 13 } });

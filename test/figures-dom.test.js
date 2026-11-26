@@ -459,3 +459,50 @@ test('cartesian: text anchored in the middle is centred on its x', () => {
   const t = fig.markById('t');
   assert.equal(t.x + t.w / 2, 50);
 });
+
+test('a hatched bar clips to its box, fills the stripes of the pattern and can outline itself inside its edge', () => {
+  const fig = new CartesianFigure(element('div'), { width: 100, height: 50, x: { scale: 'band', domain: ['a'], padding: 0 }, y: { domain: [0, 10] } });
+  fig.setData([{ type: 'bar', id: 'e', x: 'a', to: 10, color: null, pattern: { color: 3, angle: 135, width: 2, period: 10 }, stroke: 'up', strokeInside: true, radius: [2, 2, 0, 0] }]);
+  fig.renderNow();
+  assert.equal(calls(fig, 'clip').length, 1, 'the stripes stay inside the bar');
+  assert.equal(calls(fig, 'fill').length, 0, 'color: null leaves the base unfilled');
+  // along a 135 degree gradient a 100 x 50 box is about 106 px long (|100 sin| + |50 cos|), a stripe every 10 px
+  assert.equal(calls(fig, 'moveTo').length, Math.ceil((100 * Math.SQRT1_2 + 50 * Math.SQRT1_2) / 10));
+  const rect = calls(fig, 'roundRect').pop();
+  assert.deepEqual(rect.slice(1), [0.5, 0.5, 99, 49, [1.5, 1.5, 0, 0]], 'the outline is a stroke-width smaller on every side, corners included');
+  assert.equal(fig.markById('e').w, 100, 'the bar keeps its size');
+});
+
+test('hatch stripes run at the angle asked for', async () => {
+  const { hatch, shrinkRadius } = await import('../src/figures/marks.js');
+  const log = [];
+  hatch(makeContext(log), { x: 0, y: 0, w: 10, h: 10 }, 'red', { angle: 90, width: 1, period: 4 });
+  const from = log.filter((c) => c[0] === 'moveTo');
+  const to = log.filter((c) => c[0] === 'lineTo');
+  assert.ok(from.length >= 3);
+  from.forEach((a, i) => assert.equal(a[1].toFixed(6), to[i][1].toFixed(6), 'a gradient to the right makes vertical stripes'));
+  assert.equal(shrinkRadius(2, 0.5), 1.5);
+  assert.deepEqual(shrinkRadius([2, 0.2], 0.5), [1.5, 0]);
+});
+
+test('a cell can be outlined (dashed), shaded, and print a label that is cut with an ellipsis when it does not fit', () => {
+  const fig = new CartesianFigure(element('div'), {
+    width: 60, height: 20, x: { scale: 'band', domain: ['a', 'b'], padding: 0 }, y: { scale: 'band', domain: ['r'], padding: 0 },
+  });
+  fig.setData([
+    { type: 'cell', id: 'short', x: 'a', y: 'r', color: 2, label: { text: 'ok', ellipsis: true } },
+    { type: 'cell', id: 'long', x: 'b', y: 'r', color: null, stroke: 'axis', strokeDash: [2, 2], shade: 0.05, label: { text: 'a very long word', ellipsis: true, align: 'start', pad: 3 } },
+  ]);
+  fig.renderNow();
+  assert.equal(fig.markById('short').cut, false);
+  assert.equal(fig.markById('long').cut, true);
+  const words = calls(fig, 'fillText').map((c) => c[1]);
+  assert.equal(words[0], 'ok');
+  // 6 px per letter in the fake context: a 28 px cell less 2 x 3 px of padding leaves 22 px, which holds two letters and the ellipsis
+  assert.equal(words[1], 'a …');
+  assert.ok(calls(fig, 'setLineDash').some((c) => JSON.stringify(c[1]) === '[2,2]'), 'dashed outline');
+  assert.ok(fig.canvas.log.some((c) => c[0] === 'set textAlign' && c[1] === 'left'), 'start-aligned label');
+  fig.setData([{ type: 'cell', id: 'tiny', x: 'a', y: 'r', label: { text: 'wide', ellipsis: true, pad: 14 } }]);
+  fig.renderNow();
+  assert.equal(calls(fig, 'fillText').length, 2, 'a cell too small for a letter prints nothing new');
+});

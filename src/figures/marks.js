@@ -1,4 +1,5 @@
 import { markTypes } from '../core/Registry.js';
+import { ellipsize } from './layout.js';
 
 /**
  * The marks a cartesian figure draws (`CartesianFigure`). Each is registered in `markTypes`, so a host can add its own:
@@ -225,6 +226,10 @@ const area = {
  * Thickness: a band scale gives `ratio` (default 1) of the band (the band scale's `padding` makes the gaps), any other scale `size` px (default 6).
  * `minLength` keeps a bar of nearly zero length visible. For stacked or diverging bars give each segment its own
  * `from` and `to` (see `stackValues`).
+ * `pattern: { color, angle = 135, width = 1.5, period = 5 }` hatches the bar over its fill (`color: null` for hatching alone): stripes
+ * of `color`, `width` px thick every `period` px, the way `repeating-linear-gradient(angle, color 0 width, transparent width period)`
+ * would paint the box (`angle` is the direction of the gradient in degrees clockwise from up, so 135 gives stripes running up to
+ * the right). `strokeInside` draws the outline inside the bar's edge instead of centred on it, so the bar keeps its size.
  */
 const bar = {
   id: 'bar',
@@ -258,15 +263,62 @@ const bar = {
       ctx.fillStyle = env.color(s.color ?? 0);
       ctx.fill();
     }
+    if (s.pattern) {
+      ctx.save();
+      ctx.clip();
+      hatch(ctx, box, env.color(s.pattern.color ?? s.color ?? 0), s.pattern);
+      ctx.restore();
+    }
     if (s.stroke) {
       ctx.strokeStyle = env.color(s.stroke);
-      ctx.lineWidth = s.strokeWidth ?? 1;
+      const lw = s.strokeWidth ?? 1;
+      ctx.lineWidth = lw;
+      if (s.strokeInside) {
+        // the same outline, one stroke-width smaller on every side, so its outer edge is the bar's
+        ctx.beginPath();
+        const r = s.radius;
+        const inner = { x: box.x + lw / 2, y: box.y + lw / 2, w: Math.max(0, box.w - lw), h: Math.max(0, box.h - lw) };
+        if (r && ctx.roundRect) ctx.roundRect(inner.x, inner.y, inner.w, inner.h, shrinkRadius(r, lw / 2));
+        else ctx.rect(inner.x, inner.y, inner.w, inner.h);
+      }
       ctx.stroke();
     }
     ctx.restore();
     return { kind: 'rect', ...box };
   },
 };
+
+/** A corner radius (a number, or a list as `roundRect` takes) made `d` px smaller. Pure. */
+export function shrinkRadius(r, d) {
+  return Array.isArray(r) ? r.map((v) => Math.max(0, v - d)) : Math.max(0, r - d);
+}
+
+/**
+ * The stripes of a hatched box (see `bar`): `{ color, angle = 135, width = 1.5, period = 5 }`. Stripe k covers the distance
+ * [k·period, k·period + width) along the gradient line, which runs at `angle` (CSS degrees) through the middle of the box and is as
+ * long as the box is along it. Draws into whatever clip the caller set.
+ */
+export function hatch(ctx, box, color, { angle = 135, width = 1.5, period = 5 } = {}) {
+  if (!(period > 0) || !(width > 0)) return;
+  const a = (angle * Math.PI) / 180;
+  const d = { x: Math.sin(a), y: -Math.cos(a) };
+  const n = { x: -d.y, y: d.x };
+  const len = Math.abs(box.w * d.x) + Math.abs(box.h * d.y);
+  const mid = { x: box.x + box.w / 2, y: box.y + box.h / 2 };
+  const start = { x: mid.x - (d.x * len) / 2, y: mid.y - (d.y * len) / 2 };
+  const reach = Math.hypot(box.w, box.h);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  for (let k = 0; k * period < len; k++) {
+    const t = k * period + width / 2;
+    const c = { x: start.x + d.x * t, y: start.y + d.y * t };
+    ctx.moveTo(c.x - n.x * reach, c.y - n.y * reach);
+    ctx.lineTo(c.x + n.x * reach, c.y + n.y * reach);
+  }
+  ctx.stroke();
+}
 
 /** dot: { x, y, r = 3, color, stroke, strokeWidth, strokeDash, opacity } — a filled circle with an optional, optionally dashed, outline in `stroke` (`color: null` leaves it unfilled). */
 const dot = {
@@ -390,8 +442,13 @@ function cornerLabel(env, box, label) {
 }
 
 /**
- * cell: { x, y, color, opacity, inset = 1, radius, label: { text, color, size, weight } }
- * One cell of a grid: `x` and `y` are keys of band scales. `inset` px are left free on every side.
+ * cell: { x, y, color, opacity, inset = 1, radius, stroke, strokeWidth = 1, strokeDash, shade, label }
+ * One cell of a grid: `x` and `y` are keys of band scales. `inset` px are left free on every side. `stroke` outlines the cell inside
+ * its edge (`strokeDash` for a dashed one, `color: null` leaves it unfilled); `shade` (0–1) lays a black veil over it (a pointer
+ * resting on it).
+ * `label: { text, color, size = 11, weight, align = 'center', pad = 2, ellipsis }` prints words in the cell: centred, or from the
+ * `'start'` or `'end'` edge `pad` px in. With `ellipsis` a word wider than the cell (less its padding) is cut short with an ellipsis,
+ * and nothing is printed when not even one letter fits. The mark's geometry says whether the label was cut: `cut`.
  */
 const cell = {
   id: 'cell',
@@ -403,20 +460,50 @@ const cell = {
     if (![box.x, box.y, box.w, box.h].every(finite) || box.w <= 0 || box.h <= 0) return;
     ctx.save();
     ctx.globalAlpha = s.opacity ?? 1;
-    ctx.fillStyle = env.color(s.color ?? 'surface');
     ctx.beginPath();
     if (s.radius && ctx.roundRect) ctx.roundRect(box.x, box.y, box.w, box.h, s.radius);
     else ctx.rect(box.x, box.y, box.w, box.h);
-    ctx.fill();
+    if (s.color !== null) {
+      ctx.fillStyle = env.color(s.color ?? 'surface');
+      ctx.fill();
+    }
+    if (s.shade) {
+      ctx.save();
+      ctx.globalAlpha = s.shade;
+      ctx.fillStyle = '#000';
+      ctx.fill();
+      ctx.restore();
+    }
+    if (s.stroke) {
+      const lw = s.strokeWidth ?? 1;
+      ctx.strokeStyle = env.color(s.stroke);
+      ctx.lineWidth = lw;
+      ctx.setLineDash(s.strokeDash ?? []);
+      ctx.beginPath();
+      const inner = { x: box.x + lw / 2, y: box.y + lw / 2, w: Math.max(0, box.w - lw), h: Math.max(0, box.h - lw) };
+      if (s.radius && ctx.roundRect) ctx.roundRect(inner.x, inner.y, inner.w, inner.h, shrinkRadius(s.radius, lw / 2));
+      else ctx.rect(inner.x, inner.y, inner.w, inner.h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    let cut = false;
     if (s.label?.text !== undefined) {
       const size = s.label.size ?? 11;
       ctx.font = env.font(size, s.label.weight);
       ctx.fillStyle = env.color(s.label.color ?? 'text');
-      ctx.textAlign = 'center';
-      ctx.fillText(String(s.label.text), box.x + box.w / 2, box.y + box.h / 2 + size * 0.32);
+      const align = s.label.align ?? 'center';
+      const pad = s.label.pad ?? 2;
+      let word = String(s.label.text);
+      if (s.label.ellipsis) {
+        word = ellipsize((v) => ctx.measureText(v).width, word, Math.max(0, box.w - 2 * pad));
+        cut = word !== String(s.label.text);
+      }
+      ctx.textAlign = align === 'start' ? 'left' : align === 'end' ? 'right' : 'center';
+      const tx = align === 'start' ? box.x + pad : align === 'end' ? box.x + box.w - pad : box.x + box.w / 2;
+      if (word) ctx.fillText(word, tx, box.y + box.h / 2 + size * 0.32);
     }
     ctx.restore();
-    return { kind: 'rect', ...box };
+    return { kind: 'rect', ...box, cut };
   },
 };
 
