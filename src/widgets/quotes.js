@@ -35,10 +35,11 @@ class Quotes {
     if (entry.quote) fn(entry.quote);
     return () => {
       entry.listeners.delete(fn);
-      if (entry.listeners.size) return;
+      // a second call, or one after the entry already ended, must not touch a newer entry for the same symbol
+      if (entry.listeners.size || entry.dead) return;
       entry.dead = true;
       entry.off?.();
-      this.entries.delete(symbol);
+      if (this.entries.get(symbol) === entry) this.entries.delete(symbol);
     };
   }
 
@@ -46,7 +47,14 @@ class Quotes {
     const feed = this.feed;
     if (!feed.symbol(symbol)) return;
     const tf = pickTimeframe(feed, symbol, '1D');
-    const daily = await feed.history(symbol, tf);
+    let daily;
+    try {
+      daily = await feed.history(symbol, tf);
+    } catch (e) {
+      // a feed that fails leaves the quote empty (the widgets show a dash) instead of an unhandled rejection
+      if (!entry.dead) console.warn(`kiseki: no history for ${symbol}`, e);
+      return;
+    }
     if (entry.dead) return;
     const publish = () => {
       entry.pending = false;
