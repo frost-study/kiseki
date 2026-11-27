@@ -103,8 +103,10 @@ export function timeTicks(lo, hi, count, utcOffset = 0) {
   const day = (t) => Math.floor((t + utcOffset) / DAY);
   if (span < 62 * DAY) {
     if (count === 1) return [lo];
-    const a = day(lo);
+    // whole days inside [lo, hi]: the first one on or after lo, the last one on or before hi
+    const a = Math.ceil((lo + utcOffset) / DAY);
     const b = day(hi);
+    if (b < a) return [lo];
     const days = new Set(Array.from({ length: count }, (_, i) => Math.round(a + ((b - a) * i) / (count - 1))));
     return [...days].map((d) => d * DAY - utcOffset);
   }

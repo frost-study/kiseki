@@ -53,6 +53,11 @@ test('timeTicks: month starts aligned to multiples of k, the smallest k that fit
   assert.equal(short.at(-1), Date.UTC(2025, 0, 31));
   assert.ok(short.every((v) => v % DAY === 0));
   assert.deepEqual(timeTicks(5, 5, 4), [5]);
+  // a span that starts in the middle of a day: no tick before the start (it would sit outside the plot)
+  const noon = Date.UTC(2025, 0, 1, 12);
+  const mid = timeTicks(noon, noon + 20 * DAY, 5);
+  assert.ok(mid.every((v) => v >= noon && v <= noon + 20 * DAY && v % DAY === 0));
+  assert.equal(mid[0], Date.UTC(2025, 0, 2));
   // with an offset the month starts are local ones
   const off = 9 * 3_600_000;
   assert.equal(timeTicks(lo, hi, 12, off)[0], Date.UTC(2025, 1, 1) - off);
