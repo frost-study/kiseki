@@ -29,9 +29,10 @@ export function formatPrice(v, precision = 2) {
 export function formatCompact(v) {
   if (v !== v) return '—';
   const a = Math.abs(v);
-  if (a >= 1e12) return (v / 1e12).toFixed(2) + 'T';
-  if (a >= 1e9) return (v / 1e9).toFixed(2) + 'B';
-  if (a >= 1e6) return (v / 1e6).toFixed(2) + 'M';
+  // compare after rounding, so 999,999 becomes 1.00M rather than 1000.0K
+  if (a >= 999_995e6) return (v / 1e12).toFixed(2) + 'T';
+  if (a >= 999_995e3) return (v / 1e9).toFixed(2) + 'B';
+  if (a >= 999_950) return (v / 1e6).toFixed(2) + 'M';
   if (a >= 1e4) return (v / 1e3).toFixed(1) + 'K';
   if (a >= 100 || Number.isInteger(v)) return v.toFixed(0);
   return v.toFixed(2);
@@ -97,15 +98,19 @@ export function formatMark(t, offset, level) {
 export function formatDuration(ms) {
   const a = Math.abs(ms);
   const u = japanese() ? { s: '秒', m: '分', h: '時間', d: '日', sep: '' } : { s: 's', m: 'm', h: 'h', d: 'd', sep: ' ' };
-  if (a < 1000) return `${Math.round(a)}ms`;
-  if (a < 60_000) return `${(a / 1000).toFixed(a < 10_000 ? 1 : 0)}${u.s}`;
-  if (a < 3_600_000) return `${Math.round(a / 60_000)}${u.m}`;
-  if (a < DAY) {
-    const h = Math.floor(a / 3_600_000);
-    const m = Math.round((a % 3_600_000) / 60_000);
+  // Each branch rounds to its own unit first, so a value just below a boundary never shows as 60s, 1h 60m or 2d 24h.
+  if (Math.round(a) < 1000) return `${Math.round(a)}ms`;
+  if (a < 9_950) return `${(a / 1000).toFixed(1)}${u.s}`;
+  if (Math.round(a / 1000) < 60) return `${Math.round(a / 1000)}${u.s}`;
+  const minutes = Math.round(a / 60_000);
+  if (minutes < 60) return `${minutes}${u.m}`;
+  if (minutes < 24 * 60) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
     return m ? `${h}${u.h}${u.sep}${m}${u.m}` : `${h}${u.h}`;
   }
-  const d = Math.floor(a / DAY);
-  const h = Math.round((a % DAY) / 3_600_000);
+  const hours = Math.round(a / 3_600_000);
+  const d = Math.floor(hours / 24);
+  const h = hours % 24;
   return h && d < 10 ? `${d}${u.d}${u.sep}${h}${u.h}` : `${d}${u.d}`;
 }

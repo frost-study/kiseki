@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { BarData } from '../src/core/BarData.js';
+import { formatCompact, formatDuration } from '../src/core/format.js';
+import { setLocale } from '../src/core/i18n.js';
 import { MinMaxIndex } from '../src/core/MinMaxIndex.js';
 import { PriceScale, linearTicks, niceStep } from '../src/core/PriceScale.js';
 import { TimeMarks, markWeight } from '../src/core/TimeMarks.js';
@@ -235,4 +237,23 @@ test('formatting hooks: tick labels, time marks and prices can come from the hos
   assert.equal(light.down, '#445566');
   assert.equal(resolveTheme('dark', light.scheme).down, '#445566');
   assert.equal(resolveTheme('light', 'intl').up, resolveTheme({ name: 'light' }, 'intl').up);
+});
+
+test('formatCompact: a value that rounds up moves to the next unit', () => {
+  assert.equal(formatCompact(12_345), '12.3K');
+  assert.equal(formatCompact(999_999), '1.00M');
+  assert.equal(formatCompact(-999_999), '-1.00M');
+  assert.equal(formatCompact(999_996_000), '1.00B');
+  assert.equal(formatCompact(1_234_567), '1.23M');
+});
+
+test('formatDuration: no 60s, 60m or 24h just below a boundary', () => {
+  setLocale('en');
+  assert.equal(formatDuration(999.7), '1.0s');
+  assert.equal(formatDuration(59_960), '1m');
+  assert.equal(formatDuration(7_170_000), '2h');
+  assert.equal(formatDuration(5_400_000), '1h 30m');
+  assert.equal(formatDuration(2 * 86_400_000 + 23.6 * 3_600_000), '3d');
+  assert.equal(formatDuration(3 * 86_400_000 + 16 * 3_600_000), '3d 16h');
+  assert.equal(formatDuration(9_960), '10s');
 });
