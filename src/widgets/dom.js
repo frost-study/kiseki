@@ -8,8 +8,10 @@ import { t } from '../core/i18n.js';
 export function h(tag, props, ...children) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props ?? {})) {
-    if (v === false || v == null) continue;
-    if (k === 'class') el.className = v;
+    // aria-* states are spelled out ("true" / "false"); for other attributes false or null means absent
+    if (k.startsWith('aria-') && typeof v === 'boolean') el.setAttribute(k, String(v));
+    else if (v === false || v == null) continue;
+    else if (k === 'class') el.className = v;
     else if (k === 'html') el.innerHTML = v;
     else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
     else el.setAttribute(k, v === true ? '' : v);

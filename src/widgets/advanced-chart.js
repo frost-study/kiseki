@@ -529,7 +529,8 @@ export function createAdvancedChart(container, options = {}) {
 
   function renderTools() {
     const d = chart.drawings;
-    dock.replaceChildren(
+    // replaceChildren would turn a null into the text "null", so the optional button is filtered out
+    const children = [
       h('button', { class: 'btn icon' + (d.tool ? '' : ' on'), title: t('Cursor (Esc)'), html: svg(ICON.cursor), onclick: () => d.setTool(null) }),
       ...drawingTools.list().map((def) => h('button', { class: 'btn icon' + (d.tool === def.id ? ' on' : ''), title: t(def.label), html: svg(def.icon), onclick: () => d.setTool(d.tool === def.id ? null : def.id) })),
       h('div', { class: 'sep' }),
@@ -566,7 +567,8 @@ export function createAdvancedChart(container, options = {}) {
         : null,
       h('div', { class: 'spacer' }),
       info,
-    );
+    ];
+    dock.replaceChildren(...children.filter(Boolean));
   }
 
   function renderFloatbar() {

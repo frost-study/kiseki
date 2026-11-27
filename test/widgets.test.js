@@ -76,3 +76,45 @@ test('sparkPath: a small polyline', () => {
   assert.equal(sparkPath([1, 3, 2], 10, 10), 'M0.0 9.0L5.0 1.0L10.0 5.0');
   assert.ok(!sparkPath([4, 4, 4]).includes('NaN'));
 });
+
+test('quotes: calling an unsubscribe twice leaves a newer watcher of the same symbol alone', async () => {
+  const feed = new DemoFeed({ ticks: 5000, fineDays: 2 });
+  feed.speed = 600;
+  const quotes = quotesFor(feed);
+  const off = quotes.watch('FABLE', () => {});
+  off();
+  const seen = [];
+  const offNew = quotes.watch('FABLE', (q) => seen.push(q.last));
+  off();
+  await new Promise((r) => setTimeout(r, 300));
+  assert.ok(seen.length >= 2, 'the newer watcher keeps receiving updates');
+  offNew();
+});
+
+test('h: aria states are written as "true" / "false", and null children are left out', async () => {
+  const saved = globalThis.document;
+  globalThis.document = {
+    createElement: (tag) => ({
+      tag,
+      attrs: {},
+      kids: [],
+      setAttribute(k, v) {
+        this.attrs[k] = String(v);
+      },
+      addEventListener() {},
+      append(...c) {
+        this.kids.push(...c);
+      },
+    }),
+  };
+  try {
+    const { h } = await import('../src/widgets/dom.js');
+    const off = h('button', { 'aria-pressed': false, disabled: false, title: null }, null, 'x', false);
+    assert.deepEqual(off.attrs, { 'aria-pressed': 'false' });
+    assert.deepEqual(off.kids, ['x']);
+    assert.equal(h('button', { 'aria-pressed': true, hidden: true }).attrs['aria-pressed'], 'true');
+    assert.equal(h('button', { hidden: true }).attrs.hidden, '');
+  } finally {
+    globalThis.document = saved;
+  }
+});
