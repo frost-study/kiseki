@@ -8,12 +8,14 @@ Candlesticks, lines and raw tick data are all drawn by the same machinery, and i
 - **Extensible** — chart types, indicators and drawing tools are all plugins registered through one small API
 - **English and Japanese UI**
 
-![The advanced chart](docs/advanced-chart.jpg)
+![The advanced chart](docs/advanced-chart.png)
 
 ```bash
 npm run dev    # serves the demo at http://localhost:5177 (a static server that needs only Node)
 npm test       # unit tests (node:test)
 ```
+
+The screenshots in `docs/` are made by `node tools/screenshots.mjs` (it drives a local Chrome; set `CHROME` if it is elsewhere).
 
 Open `http://localhost:5177/` for the full chart and `http://localhost:5177/widgets.html` for the widget gallery.
 Because there is no build step, any static file server works (GitHub Pages included).
@@ -22,7 +24,7 @@ All data in the demo is synthetic: the symbols are fictional and unrelated to an
 
 ## Embedding in a web page
 
-![The widget gallery](docs/widgets.jpg)
+![The widget gallery](docs/widgets.png)
 
 Load one script and write a tag. The gallery page (`widgets.html`) lets you change settings and copy the code.
 
@@ -132,7 +134,7 @@ Main API: `setData` `update` `append` `setType` `addIndicator` `removeIndicator`
 
 ### Trade markers and price lines
 
-![Trade markers](docs/trades.jpg)
+![Trade markers](docs/trades.png)
 
 `chart.trades` shows where a position was entered and left ("in" and "out"), at the exact time and price.
 A working page is in [examples/trades.html](examples/trades.html); the demo has synthetic ones under Settings → Sample trades
