@@ -19,11 +19,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
       - name: Collect the site
@@ -34,5 +31,22 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: _site
-      - id: deployment
+
+  # Deploying in a job of its own gives the artifact time to show up in the run's artifact list. Right after an upload in the
+  # same job, deploy-pages can find nothing ("No artifacts named github-pages", actions/deploy-pages#451), so a failed
+  # first attempt is also retried once after a pause. Re-running a failed run does not help: it uploads a second artifact.
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.first.outputs.page_url || steps.second.outputs.page_url }}
+    steps:
+      - id: first
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+      - if: steps.first.outcome == 'failure'
+        run: sleep 30
+      - id: second
+        if: steps.first.outcome == 'failure'
         uses: actions/deploy-pages@v5
