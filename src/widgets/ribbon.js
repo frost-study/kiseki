@@ -1,7 +1,7 @@
 /**
- * Ticker tape: a strip where prices and daily changes scroll by.
+ * Price ribbon: a strip where prices and daily changes scroll by.
  *
- *   <kiseki-ticker-tape symbols="MYTH/USD,FABLE,AUR/JPY,NOVA" target="#chart"></kiseki-ticker-tape>
+ *   <kiseki-ribbon symbols="MYTH/USD,FABLE,AUR/JPY,NOVA" target="#chart"></kiseki-ribbon>
  *
  * Moving content must be pausable, so it stops on hover, on keyboard focus, and with the button on the right.
  * For people who ask the OS to reduce motion it does not move and becomes a horizontally scrollable strip.
@@ -44,11 +44,11 @@ export function sparkPath(values, width = SPARK_W, height = SPARK_H) {
   return d;
 }
 
-export function createTickerTape(container, options = {}) {
+export function createRibbonWidget(container, options = {}) {
   const feed = options.feed ?? getFeed();
   if (options.lang) setWidgetLocale(options.lang);
   const still = options.mode === 'static';
-  const mount = mountWidget(container, 'kw-tape' + (still ? ' still' : ''), options);
+  const mount = mountWidget(container, 'kw-ribbon' + (still ? ' still' : ''), options);
   const root = mount.root;
   const wanted = list(options.symbols).filter((id) => feed.symbol(id));
   const symbols = wanted.length ? wanted : feed.symbols.filter((s) => !s.static).map((s) => s.id);

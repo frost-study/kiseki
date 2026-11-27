@@ -1,12 +1,12 @@
 /**
- * Advanced chart (an embeddable component).
+ * Full chart (an embeddable component).
  *
  * It only builds toolbars, menus and dialogs and calls the public Chart API; it never touches chart internals.
  * Menus list the registries (seriesTypes / indicators / drawingTools) directly,
  * so types and tools added by plugins show up automatically.
  *
- *   <kiseki-advanced-chart symbol="FABLE" timeframe="1h" theme="dark"></kiseki-advanced-chart>
- *   createAdvancedChart(element, { symbol: 'FABLE', timeframe: '1h' })
+ *   <kiseki-chart symbol="FABLE" timeframe="1h" theme="dark"></kiseki-chart>
+ *   createChartWidget(element, { symbol: 'FABLE', timeframe: '1h' })
  *
  * Options (attributes of the same name on the custom element; multi-word ones are kebab-case):
  *   symbol, timeframe, type        initial symbol, timeframe and chart type
@@ -33,7 +33,7 @@ import { flag, getFeed, list, mountWidget, onLocaleChange, setWidgetLocale } fro
 
 const DAY = 86_400_000;
 
-export function createAdvancedChart(container, options = {}) {
+export function createChartWidget(container, options = {}) {
   /* ───────────── State ───────────── */
 
   const storeKey = options.persist || null;

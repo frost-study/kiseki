@@ -1,8 +1,8 @@
 /**
- * Symbol overview: last price, change over the chosen period, a chart and period statistics on one card.
+ * Summary: last price, change over the chosen period, a chart and period statistics on one card.
  * Several symbols become tabs. Hovering the chart shows the value at that point in the numbers above.
  *
- *   <kiseki-symbol-overview symbols="MYTH/USD,FABLE" range="3M"></kiseki-symbol-overview>
+ *   <kiseki-summary symbols="MYTH/USD,FABLE" range="3M"></kiseki-summary>
  *
  * Options: symbols (or symbol), range, type ('area'|'candlestick'), theme, scheme, lang, live
  */
@@ -13,10 +13,10 @@ import { ICON, h, svg } from './dom.js';
 import { RANGES, loadRange, rangeById, rangeStats } from './ranges.js';
 import { flag, getFeed, list, mountWidget, onLocaleChange, setWidgetLocale } from './shared.js';
 
-export function createSymbolOverview(container, options = {}) {
+export function createSummaryWidget(container, options = {}) {
   const feed = options.feed ?? getFeed();
   if (options.lang) setWidgetLocale(options.lang);
-  const mount = mountWidget(container, 'kw-card kw-overview', options);
+  const mount = mountWidget(container, 'kw-card kw-summary', options);
   const root = mount.root;
   const utcOffset = -new Date().getTimezoneOffset() * 60_000;
   const symbols = list(options.symbols ?? options.symbol).filter((id) => feed.symbol(id));

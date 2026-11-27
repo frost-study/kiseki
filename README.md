@@ -8,7 +8,11 @@ Candlesticks, lines and raw tick data are all drawn by the same machinery, and i
 - **Extensible** — chart types, indicators and drawing tools are all plugins registered through one small API
 - **English and Japanese UI**
 
-![The advanced chart](docs/advanced-chart.png)
+**Live demo:** [the chart](https://frost-study.github.io/kiseki/) ·
+[the widgets](https://frost-study.github.io/kiseki/widgets.html) ·
+[the benchmark](https://frost-study.github.io/kiseki/bench.html)
+
+![The full chart](docs/chart.png)
 
 ```bash
 npm run dev    # serves the demo at http://localhost:5177 (a static server that needs only Node)
@@ -17,7 +21,8 @@ npm test       # unit tests (node:test)
 
 The screenshots in `docs/` are made by `node tools/screenshots.mjs` (it drives a local Chrome; set `CHROME` if it is elsewhere).
 
-Open `http://localhost:5177/` for the full chart and `http://localhost:5177/widgets.html` for the widget gallery.
+Open `http://localhost:5177/` for the full chart, `http://localhost:5177/widgets.html` for the widget gallery and
+`http://localhost:5177/bench.html` for the benchmark.
 Because there is no build step, any static file server works (GitHub Pages included).
 
 All data in the demo is synthetic: the symbols are fictional and unrelated to any real market.
@@ -31,32 +36,32 @@ Load one script and write a tag. The gallery page (`widgets.html`) lets you chan
 ```html
 <script type="module" src="https://your.host/embed.js"></script>
 
-<kiseki-ticker-tape symbols="MYTH/USD,FABLE,AUR/JPY" target=".follow"></kiseki-ticker-tape>
-<kiseki-mini-chart symbol="FABLE" range="1M" style="width: 320px"></kiseki-mini-chart>
-<kiseki-symbol-overview class="follow" symbols="MYTH/USD,FABLE" range="3M"></kiseki-symbol-overview>
-<kiseki-advanced-chart class="follow" symbol="FABLE" timeframe="1h" style="height: 520px"></kiseki-advanced-chart>
+<kiseki-ribbon symbols="MYTH/USD,FABLE,AUR/JPY" target=".follow"></kiseki-ribbon>
+<kiseki-price-card symbol="FABLE" range="1M" style="width: 320px"></kiseki-price-card>
+<kiseki-summary class="follow" symbols="MYTH/USD,FABLE" range="3M"></kiseki-summary>
+<kiseki-chart class="follow" symbol="FABLE" timeframe="1h" style="height: 520px"></kiseki-chart>
 ```
 
 | Tag | What it shows | Main attributes |
 |---|---|---|
-| `kiseki-advanced-chart` | The full chart: timeframes, chart types, indicators, drawing tools | `symbol` `timeframe` `type` `indicators` `hide` (`mast` `strip` `dock` `brand`) `symbol-change` `persist` `sample-trades` |
-| `kiseki-symbol-overview` | Price, change over a period, a chart, and the period high / low / spread / volume. Several symbols become tabs | `symbols` `range` `type` |
-| `kiseki-mini-chart` | A card with the price and a small chart, plus a bar showing where the price sits in the period range | `symbol` `range` |
-| `kiseki-ticker-tape` | A scrolling strip of prices and daily changes with tiny sparklines | `symbols` `speed` `mode="static"` `target` |
+| `kiseki-chart` | The full chart: timeframes, chart types, indicators, drawing tools | `symbol` `timeframe` `type` `indicators` `hide` (`mast` `strip` `dock` `brand`) `symbol-change` `persist` `sample-trades` |
+| `kiseki-summary` | Price, change over a period, a chart, and the period high / low / spread / volume. Several symbols become tabs | `symbols` `range` `type` |
+| `kiseki-price-card` | A card with the price and a small chart, plus a bar showing where the price sits in the period range | `symbol` `range` |
+| `kiseki-ribbon` | A scrolling strip of prices and daily changes with tiny sparklines | `symbols` `speed` `mode="static"` `target` |
 
 Common attributes: `theme` (`light` / `dark` / `auto`), `scheme` (candle colors), `lang` (`en` / `ja`), `live="false"`.
 
 - **Styles never mix.** Every widget renders inside a Shadow DOM, so host-page CSS and widget CSS cannot affect each other.
   [examples/embed-host.html](examples/embed-host.html) shows the widgets on a page with deliberately aggressive CSS.
 - **Sizing** is ordinary CSS `width` / `height`. Layouts adapt to the widget's own width, not the viewport.
-- **Linking.** Elements matched by the ticker tape's `target` selector get their `symbol` attribute set when a symbol is clicked.
+- **Linking.** Elements matched by the price ribbon's `target` selector get their `symbol` attribute set when a symbol is clicked.
   A `kiseki:symbol` event is dispatched as well.
-- **Scrolling is never hijacked.** The overview and mini chart do not intercept the wheel or touch scrolling.
-- **Motion can be stopped.** The tape pauses on hover, on keyboard focus, and with its button, and does not move at all when the
+- **Scrolling is never hijacked.** The summary and price card do not intercept the wheel or touch scrolling.
+- **Motion can be stopped.** The ribbon pauses on hover, on keyboard focus, and with its button, and does not move at all when the
   OS asks for reduced motion. Direction is shown with ▲▼ as well as color.
 - **No scripts allowed?** Use an iframe:
-  `<iframe src="…/embed.html?widget=mini-chart&symbol=FABLE&range=1M" width="320" height="212" style="border:0"></iframe>`
-- **From JavaScript**, call `createMiniChart(element, { symbol: 'FABLE' })` and friends; `destroy()` cleans up.
+  `<iframe src="…/embed.html?widget=price-card&symbol=FABLE&range=1M" width="320" height="212" style="border:0"></iframe>`
+- **From JavaScript**, call `createPriceCardWidget(element, { symbol: 'FABLE' })` and friends; `destroy()` cleans up.
 - **Real data.** Call `setFeed(yourFeed)` before placing widgets (see [Connecting data](#connecting-data)).
 
 To load the widgets from another origin, serve `embed.js` and `src/` with CORS enabled (the bundled dev server does).
@@ -87,8 +92,28 @@ The work per frame scales with the width of the screen, not with the number of b
 | Batched updates | `chart.update()` / `append()` only mark data dirty. Recalculation and drawing happen once, in the next frame |
 | Two canvases | The crosshair and drawings live on their own layer, so moving the mouse never redraws the series |
 
-Measured in the demo (median per frame): 1–2 ms with about 1.1 million ticks fully zoomed out, and 3–4 ms with about 2.7 million.
-Add `?ticks=3000000` to the URL to change how many ticks are synthesized.
+### Benchmark
+
+[bench.html](bench.html) ([live](https://frost-study.github.io/kiseki/bench.html)) times the chart in your own browser, and
+`node tools/bench.mjs` runs the same page in headless Chrome and prints this table. Each frame is a real animation frame; the
+figure is the main-thread time from the start of the chart's frame to the end of drawing the series layer, in ms
+(median / 95th percentile over 90 frames). **Zoomed out** shows every point at once, **panning** moves a 150-bar view every
+frame, and **live tick** changes the last bar (the indicators update incrementally). **Load** is `setData` plus the first frame.
+
+| Data | Points | Load (ms) | Zoomed out | Panning | Live tick |
+|---|--:|--:|--:|--:|--:|
+| Bars + volume + EMA | 10,000 | 3.5 | 2.0 / 3.2 | 0.6 / 0.9 | 0.7 / 0.9 |
+| Bars + volume + EMA | 100,000 | 7.3 | 2.0 / 2.3 | 0.7 / 0.8 | 0.6 / 0.8 |
+| Bars + volume + EMA | 1,000,000 | 32.3 | 1.9 / 2.7 | 0.2 / 0.5 | 0.5 / 0.8 |
+| Bars + volume + EMA | 3,000,000 | 105 | 3.2 / 3.5 | 0.6 / 0.9 | 0.8 / 1.0 |
+| Ticks (line) | 1,000,000 | 21.5 | 1.0 / 1.3 | 0.4 / 0.5 | 0.4 / 0.6 |
+| Ticks (line) | 3,000,000 | 38.3 | 1.5 / 1.7 | 0.4 / 0.6 | 0.5 / 0.6 |
+| Ticks (line) | 10,000,000 | 127 | 1.1 / 1.4 | 0.5 / 0.6 | 0.6 / 0.6 |
+
+Headless Chrome 159 on an Apple M4 (10 cores), chart about 1090 × 420 CSS px at device pixel ratio 2.
+Only loading grows with the data; a frame costs about the same at ten thousand points as at ten million.
+The time the GPU spends rasterizing is not on this clock, and a visible window can differ from headless, so read the numbers
+as a shape rather than a promise. In the demo, add `?ticks=3000000` to the URL to change how many ticks are synthesized.
 
 Memory is roughly 8 bytes × (3 + number of indicator buffers) per point, so several indicators on top of millions of points
 can reach the browser's limits (a tab with 3 million points and five indicators, including Bollinger Bands and MACD, ran out of memory).
@@ -389,13 +414,14 @@ src/
   markers/     markers on bars (pins, dividends, events)
   figures/     charts that are not bar-indexed time series (sparkline, plots composed from marks)
   data/        timeframe aggregation, synthetic data, CSV
-  widgets/     embeddable widgets (advanced chart, symbol overview, mini chart, ticker tape)
-  ui/          entry points of the demo page and the widget gallery
+  widgets/     embeddable widgets (full chart, summary, price card, price ribbon)
+  ui/          entry points of the demo page, the widget gallery and the benchmark
 embed.js       entry point for embedding (loading it registers the <kiseki-…> tags)
 embed.html     page for iframe embedding
+bench.html     benchmark page
 examples/      plugin examples, an example host page, and a trade marker example
 test/          unit tests
-tools/         dev server and the in-browser randomized stress test
+tools/         dev server, screenshot and benchmark runners, the in-browser randomized stress test
 ```
 
 ## Testing

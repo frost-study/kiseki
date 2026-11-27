@@ -1,9 +1,9 @@
 /**
- * Mini chart: a card with the symbol's price, the change over a period, and a small chart.
+ * Price card: a card with the symbol's price, the change over a period, and a small chart.
  * Hovering the chart shows the value and time at that point in the numbers above.
  * The bar underneath shows where the price sits between the period low and high.
  *
- *   <kiseki-mini-chart symbol="FABLE" range="1M"></kiseki-mini-chart>
+ *   <kiseki-price-card symbol="FABLE" range="1M"></kiseki-price-card>
  *
  * Options: symbol, range ('1D'|'1W'|'1M'|'3M'|'1Y'|'ALL'), theme, scheme, lang, live ('false' to stop)
  */
@@ -14,10 +14,10 @@ import { h } from './dom.js';
 import { loadRange, rangeById, rangeStats } from './ranges.js';
 import { flag, getFeed, mountWidget, onLocaleChange, setWidgetLocale } from './shared.js';
 
-export function createMiniChart(container, options = {}) {
+export function createPriceCardWidget(container, options = {}) {
   const feed = options.feed ?? getFeed();
   if (options.lang) setWidgetLocale(options.lang);
-  const mount = mountWidget(container, 'kw-card kw-mini', options);
+  const mount = mountWidget(container, 'kw-card kw-price-card', options);
   const symbol = feed.symbol(options.symbol) ? options.symbol : feed.symbols[0].id;
   const info = feed.symbol(symbol);
   const range = rangeById(options.range);

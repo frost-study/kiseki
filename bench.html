@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kiseki benchmark</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%233a3732'/%3E%3Cpath d='M7 22l6-7 4 4 8-10' fill='none' stroke='%23f5f2eb' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <style>
+      /* Colors and fonts come from the chart theme (--kc-* variables, set by the script). */
+      * { box-sizing: border-box; }
+      html { background: var(--kc-bg, #f5f2eb); }
+      body { margin: 0; color: var(--kc-text); font: 14px/1.7 var(--kc-font); }
+      a { color: inherit; text-underline-offset: 3px; }
+      button, select { font: inherit; color: inherit; }
+      .wrap { max-width: 1120px; margin: 0 auto; padding: 0 16px 60px; }
+      .top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--kc-border); }
+      .top .name { font-weight: 700; letter-spacing: .04em; }
+      .top .grow { flex: 1; }
+      h1 { margin: 36px 0 6px; font-size: 26px; line-height: 1.35; }
+      p { margin: 0 0 12px; max-width: 48em; color: var(--kc-muted); }
+      .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 20px 0 12px; }
+      .run { height: 32px; padding: 0 16px; border: 1px solid var(--kc-text); border-radius: 3px; background: var(--kc-text); color: var(--kc-bg); cursor: pointer; }
+      .run:disabled { opacity: .5; cursor: default; }
+      .run:focus-visible, select:focus-visible { outline: 1px solid var(--kc-text); outline-offset: 2px; }
+      select { height: 32px; padding: 0 8px; border: 1px solid var(--kc-border); border-radius: 3px; background: var(--kc-bg); }
+      .status { color: var(--kc-muted); font: 12.5px var(--kc-mono); }
+      #stage { height: 420px; border: 1px solid var(--kc-border); }
+      .scroll { overflow-x: auto; margin-top: 16px; }
+      table { border-collapse: collapse; min-width: 640px; width: 100%; font-size: 13px; }
+      th, td { padding: 6px 10px; border-bottom: 1px solid var(--kc-border); text-align: right; white-space: nowrap; }
+      th:first-child, td:first-child, th:nth-child(2), td:nth-child(2) { text-align: left; }
+      th { color: var(--kc-muted); font-weight: 500; }
+      td { font: 12.5px var(--kc-mono); }
+      .env { margin-top: 10px; color: var(--kc-faint); font: 12px var(--kc-mono); overflow-wrap: anywhere; }
+      code { font: 12.5px var(--kc-mono); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="top">
+        <span class="name">Kiseki</span>
+        <span class="grow"></span>
+        <a href="./">Chart</a>
+        <a href="widgets.html">Widgets</a>
+      </div>
+      <h1>Benchmark</h1>
+      <p>
+        Builds synthetic data of growing size, puts it in a chart the size of the box below, and times what the chart does per frame.
+        The numbers are the main-thread time of one frame, from the start of the chart's frame to the end of drawing the
+        series layer (the same figure as "draw … ms" in the demo's status bar), in milliseconds: median and 95th percentile over
+        90 real animation frames after a warm-up. Browsers round the clock to about 0.1 ms. A frame at 60 fps has 16.7 ms.
+      </p>
+      <p>
+        <b>Zoomed out</b> shows every point at once. <b>Panning</b> shows 150 bars and moves them a little every frame.
+        <b>Live tick</b> changes the last bar and redraws, which includes updating the indicators.
+        <b>Load</b> is <code>setData</code> plus the first frame. Bars carry volume and a 50-period EMA; ticks are drawn as a plain line.
+      </p>
+      <div class="bar">
+        <button class="run" id="run" type="button">Run</button>
+        <label>
+          Sizes
+          <select id="preset">
+            <option value="quick">Quick (up to 1M)</option>
+            <option value="full" selected>Full (up to 10M ticks)</option>
+          </select>
+        </label>
+        <span class="status" id="status" role="status"></span>
+      </div>
+      <div id="stage"></div>
+      <div class="scroll">
+        <table id="results" aria-live="polite">
+          <thead>
+            <tr>
+              <th scope="col">Data</th>
+              <th scope="col">Points</th>
+              <th scope="col">Load</th>
+              <th scope="col">Zoomed out</th>
+              <th scope="col">Panning</th>
+              <th scope="col">Live tick</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="env" id="env"></div>
+    </div>
+    <script type="module" src="src/ui/bench.js"></script>
+  </body>
+</html>

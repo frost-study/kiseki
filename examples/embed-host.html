@@ -17,30 +17,30 @@
       .btn { text-transform: uppercase; letter-spacing: .3em; }
       .menu, .dialog { display: none; }
       .side { float: right; width: 300px; margin: 6px 0 12px 24px; }
-      kiseki-ticker-tape { position: sticky; top: 0; z-index: 2; }
+      kiseki-ribbon { position: sticky; top: 0; z-index: 2; }
       @media (max-width: 720px) { .side { float: none; width: auto; margin: 12px 0; } }
     </style>
     <script type="module" src="../embed.js"></script>
   </head>
   <body>
-    <kiseki-ticker-tape target=".follow" theme="light"></kiseki-ticker-tape>
+    <kiseki-ribbon target=".follow" theme="light"></kiseki-ribbon>
     <main>
       <h1>Looking back at this week's prices</h1>
       <p>
         This is an example of a host page. It has a quirky design of its own: serif body text and round, orange buttons.
         <button class="btn">A button of this page</button>
       </p>
-      <kiseki-mini-chart class="side" symbol="FABLE" range="1M" theme="light"></kiseki-mini-chart>
+      <kiseki-price-card class="side" symbol="FABLE" range="1M" theme="light"></kiseki-price-card>
       <p>
-        The card on the right is a mini chart. This page's CSS makes every button round and colored, yet the buttons inside
-        the widgets are untouched. Click a symbol in the strip at the top and the overview and chart below switch to it.
+        The card on the right is a price card. This page's CSS makes every button round and colored, yet the buttons inside
+        the widgets are untouched. Click a symbol in the strip at the top and the summary and chart below switch to it.
       </p>
       <p>
         Widgets can sit in the middle of an article. They are sized with ordinary CSS, so they stretch with the column.
       </p>
-      <kiseki-symbol-overview class="follow" symbols="MYTH/USD,FABLE,AUR/JPY" range="3M" theme="light" style="margin: 20px 0"></kiseki-symbol-overview>
+      <kiseki-summary class="follow" symbols="MYTH/USD,FABLE,AUR/JPY" range="3M" theme="light" style="margin: 20px 0"></kiseki-summary>
       <p>For a closer look, the full chart with indicators and drawing tools can be placed as it is.</p>
-      <kiseki-advanced-chart class="follow" symbol="MYTH/USD" timeframe="4h" hide="brand" theme="light" style="height: 480px"></kiseki-advanced-chart>
+      <kiseki-chart class="follow" symbol="MYTH/USD" timeframe="4h" hide="brand" theme="light" style="height: 480px"></kiseki-chart>
     </main>
   </body>
 </html>

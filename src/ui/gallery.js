@@ -14,14 +14,15 @@ addMessages('ja', {
   'Chart widgets you can drop into any web page': 'Web ページに置けるチャート部品',
   'Load one script, write a tag, and it works. Styles never mix with the host page, and the data source can be swapped. Change the settings below and the code to paste updates as you go.': 'スクリプトを 1 行読み込み、タグを書くだけで動きます。見た目は埋め込み先のページと混ざらず、データ供給元も差し替えられます。下で設定を変えると、貼り付け用のコードがその場で変わります。',
   'Open the full chart': 'チャート全体を開く',
+  'Benchmark': 'ベンチマーク',
   'Auto': '自動',
-  'Ticker tape': 'ティッカーテープ',
-  'A moving strip of prices and daily changes. Hover or press the button on the right to pause; click a symbol to switch the overview and chart below.': '現在値と前日比が横に流れる帯。マウスを載せるか右端のボタンで止まり、銘柄を押すと下の概要とチャートが切り替わります。',
-  'Mini chart': 'ミニチャート',
+  'Price ribbon': 'プライスリボン',
+  'A moving strip of prices and daily changes. Hover or press the button on the right to pause; click a symbol to switch the summary and chart below.': '現在値と前日比が横に流れる帯。マウスを載せるか右端のボタンで止まり、銘柄を押すと下のサマリーとチャートが切り替わります。',
+  'Price card': '価格カード',
   'A card with the price, the change over a period, and a small chart. Hover the chart to read past values; the bar underneath shows where the price sits between the period low and high.': '現在値・期間の変化・小さなチャートのカード。チャートに触れるとその時点の値が読め、下の帯で「期間の安値〜高値のどこにいるか」が分かります。',
-  'Symbol overview': 'シンボル概要',
+  'Summary': 'サマリー',
   'A chart with selectable periods plus the period high, low, spread and volume. Multiple symbols become tabs.': '期間を切り替えられるチャートと、期間の高値・安値・値幅・出来高。複数の銘柄はタブで切り替えます。',
-  'Advanced chart': '高機能チャート',
+  'Full chart': 'フルチャート',
   'The full chart with timeframes, chart types, indicators and drawing tools. Hide the parts you do not need to fit the space.': '時間足・チャート型・指標・描画ツールがそろった本体。隠す部分を選んで、置く場所に合わせられます。',
   'Symbol': '銘柄',
   'Symbols': '銘柄(複数可)',
@@ -47,7 +48,7 @@ addMessages('ja', {
   'Write the tag where you want the widget. Size it with ordinary CSS width / height.': '出したい場所にタグを書きます。大きさは CSS の width / height でそのまま変えられます。',
   'Where scripts are not allowed, use the iframe code instead.': 'スクリプトを置けないページでは、iframe 用のコードを使います。',
   'The data shown here is synthetic. To use real data, call setFeed(yourFeed) before placing widgets (see the README).': '表示しているのは合成データです。実データを使うときは、ウィジェットを置く前に setFeed(自前の供給元) を呼びます(README 参照)。',
-  'To react when a symbol is clicked, use the ticker tape\'s target attribute (a CSS selector) or listen for the kiseki:symbol event.': '銘柄を押したときの連動は、ティッカーテープの target 属性(CSS セレクタ)か、kiseki:symbol イベントで受け取れます。',
+  'To react when a symbol is clicked, use the price ribbon\'s target attribute (a CSS selector) or listen for the kiseki:symbol event.': '銘柄を押したときの連動は、プライスリボンの target 属性(CSS セレクタ)か、kiseki:symbol イベントで受け取れます。',
   'Drawing tools': '描画ツール',
 });
 
@@ -83,9 +84,9 @@ function h(tag, props, ...children) {
  */
 const SECTIONS = [
   {
-    id: 'ticker-tape',
-    title: 'Ticker tape',
-    lead: 'A moving strip of prices and daily changes. Hover or press the button on the right to pause; click a symbol to switch the overview and chart below.',
+    id: 'ribbon',
+    title: 'Price ribbon',
+    lead: 'A moving strip of prices and daily changes. Hover or press the button on the right to pause; click a symbol to switch the summary and chart below.',
     size: [null, 46],
     values: { symbols: symbols.join(','), speed: '40', mode: '', target: '.linked' },
     omit: ['target'],
@@ -96,8 +97,8 @@ const SECTIONS = [
     ],
   },
   {
-    id: 'mini-chart',
-    title: 'Mini chart',
+    id: 'price-card',
+    title: 'Price card',
     lead: 'A card with the price, the change over a period, and a small chart. Hover the chart to read past values; the bar underneath shows where the price sits between the period low and high.',
     size: [320, 212],
     values: { symbol: symbols[1] ?? symbols[0], range: '1M' },
@@ -109,8 +110,8 @@ const SECTIONS = [
     ],
   },
   {
-    id: 'symbol-overview',
-    title: 'Symbol overview',
+    id: 'summary',
+    title: 'Summary',
     lead: 'A chart with selectable periods plus the period high, low, spread and volume. Multiple symbols become tabs.',
     size: [null, 440],
     linked: true,
@@ -122,8 +123,8 @@ const SECTIONS = [
     ],
   },
   {
-    id: 'advanced-chart',
-    title: 'Advanced chart',
+    id: 'chart',
+    title: 'Full chart',
     lead: 'The full chart with timeframes, chart types, indicators and drawing tools. Hide the parts you do not need to fit the space.',
     size: [null, 560],
     linked: true,
@@ -188,6 +189,7 @@ function render() {
       { class: 'top' },
       h('span', { class: 'name' }, 'Kiseki'),
       h('a', { href: './' }, t('Open the full chart')),
+      h('a', { href: 'bench.html' }, t('Benchmark')),
       h('span', { class: 'grow' }),
       seg(t('Theme'), [['auto', t('Auto')], ['light', t('Paper')], ['dark', t('Ink')]], settings.theme, (v) => ((settings.theme = v), render())),
       seg('言語 / Language', [['ja', '日本語'], ['en', 'English']], settings.lang, (v) => setWidgetLocale(v)),
@@ -206,7 +208,7 @@ function render() {
         h('li', null, t('Write the tag where you want the widget. Size it with ordinary CSS width / height.')),
         h('li', null, t('Where scripts are not allowed, use the iframe code instead.')),
       ),
-      h('p', { class: 'note' }, t('To react when a symbol is clicked, use the ticker tape\'s target attribute (a CSS selector) or listen for the kiseki:symbol event.')),
+      h('p', { class: 'note' }, t('To react when a symbol is clicked, use the price ribbon\'s target attribute (a CSS selector) or listen for the kiseki:symbol event.')),
       h('p', { class: 'note' }, t('The data shown here is synthetic. To use real data, call setFeed(yourFeed) before placing widgets (see the README).')),
     ),
   );
@@ -249,7 +251,7 @@ function renderSection(section) {
     }, t('Copy'));
 
   const selects = new Map();
-  // When a symbol is picked in the ticker tape, keep the linked previews' settings and code in sync.
+  // When a symbol is picked in the price ribbon, keep the linked previews' settings and code in sync.
   section.onLinked = (symbol) => {
     if (!section.linked) return;
     section.values.symbol = symbol;
@@ -305,7 +307,7 @@ function renderSection(section) {
 }
 
 document.addEventListener('kiseki:symbol', (e) => {
-  if (e.target.closest?.('#ticker-tape')) for (const section of SECTIONS) section.onLinked?.(e.detail.symbol);
+  if (e.target.closest?.('#ribbon')) for (const section of SECTIONS) section.onLinked?.(e.detail.symbol);
 });
 
 onLocaleChange((lang) => {

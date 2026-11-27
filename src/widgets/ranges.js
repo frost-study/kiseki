@@ -3,7 +3,7 @@ import { TIMEFRAMES, timeframeById } from '../data/timeframes.js';
 const DAY = 86_400_000;
 
 /**
- * Periods selectable in the overview and mini chart. Each uses a timeframe of suitable detail
+ * Periods selectable in the summary and price cards. Each uses a timeframe of suitable detail
  * (5-minute bars for one day, daily bars for one year).
  */
 export const RANGES = [

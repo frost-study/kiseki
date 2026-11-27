@@ -157,7 +157,7 @@ const messages = {
     'Columns "time" and "close" are required': 'time と close の列が必要です',
     'No readable rows were found': '読み取れる行がありませんでした',
 
-    // ── Advanced chart UI ──
+    // ── Full chart UI ──
     'Close': '閉じる',
     'View controls': '表示の切り替え',
     'Switch symbol': '銘柄を切り替える',

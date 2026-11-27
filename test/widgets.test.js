@@ -4,7 +4,7 @@ import { BarData } from '../src/core/BarData.js';
 import { DemoFeed } from '../src/data/feed.js';
 import { quoteFrom, quotesFor } from '../src/widgets/quotes.js';
 import { RANGES, loadRange, pickTimeframe, rangeById, rangeStats } from '../src/widgets/ranges.js';
-import { sparkPath } from '../src/widgets/ticker-tape.js';
+import { sparkPath } from '../src/widgets/ribbon.js';
 
 const DAY = 86_400_000;
 

@@ -390,7 +390,7 @@ export class Chart extends EventEmitter {
 
   /**
    * Keep the span from `from` to `to` (latest when omitted) fitted to the full width at all times.
-   * Survives resizes and new bars (for overview and mini charts). Released when the user pans or zooms.
+   * Survives resizes and new bars (for the summary and price cards). Released when the user pans or zooms.
    */
   fitTimeRange(from, to = null) {
     this.#fit = { from, to };

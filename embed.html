@@ -11,15 +11,15 @@
   </head>
   <body>
     <!--
-      Page for iframes. With ?widget=mini-chart&symbol=FABLE&range=1M&theme=dark it shows that one widget
+      Page for iframes. With ?widget=price-card&symbol=FABLE&range=1M&theme=dark it shows that one widget
       filling the viewport. Use it on pages where scripts are not allowed (a CMS, for example):
-        <iframe src="…/embed.html?widget=mini-chart&symbol=FABLE" width="320" height="212" style="border:0"></iframe>
+        <iframe src="…/embed.html?widget=price-card&symbol=FABLE" width="320" height="212" style="border:0"></iframe>
     -->
     <script type="module">
       import { WIDGETS } from './embed.js';
 
       const params = new URLSearchParams(location.search);
-      const widget = WIDGETS.find((w) => w.id === params.get('widget')) ?? WIDGETS.find((w) => w.id === 'mini-chart');
+      const widget = WIDGETS.find((w) => w.id === params.get('widget')) ?? WIDGETS.find((w) => w.id === 'price-card');
       const el = document.createElement(widget.tag);
       // pass only known attributes (never turn arbitrary URL values into attributes)
       for (const name of widget.attributes) if (params.has(name)) el.setAttribute(name, params.get(name));
